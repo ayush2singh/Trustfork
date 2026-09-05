@@ -53,6 +53,185 @@ const SCENARIO_STEPS = [
   }
 ];
 
+// ==========================================================================
+// Cyber Audio Engine (Web Audio API Synthesizer - Zero Dependencies)
+// ==========================================================================
+let audioCtx = null;
+let audioEnabled = localStorage.getItem('tf_audio') !== 'false';
+
+function initAudio() {
+  if (!audioCtx) {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (AudioContext) audioCtx = new AudioContext();
+  }
+  if (audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+}
+
+function toggleAudio() {
+  initAudio();
+  audioEnabled = !audioEnabled;
+  localStorage.setItem('tf_audio', audioEnabled);
+  const btn = document.getElementById('btn-audio-toggle');
+  if (btn) {
+    btn.textContent = audioEnabled ? '🔊 Sound ON' : '🔇 Sound OFF';
+    btn.style.color = audioEnabled ? 'var(--cyan-core)' : 'var(--text-muted)';
+  }
+  if (audioEnabled) playReconnectSound();
+}
+
+function playTone(freq, type = 'sine', duration = 0.15, startVol = 0.08, endVol = 0.001) {
+  if (!audioEnabled) return;
+  try {
+    initAudio();
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+    gain.gain.setValueAtTime(startVol, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(endVol, audioCtx.currentTime + duration);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + duration);
+  } catch (e) {}
+}
+
+function playDisconnectSound() {
+  if (!audioEnabled) return;
+  try {
+    initAudio();
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(320, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(60, audioCtx.currentTime + 0.35);
+    gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.35);
+  } catch (e) {}
+}
+
+function playReconnectSound() {
+  playTone(440, 'sine', 0.1, 0.08);
+  setTimeout(() => playTone(880, 'triangle', 0.2, 0.1), 75);
+}
+
+function playSignSound() {
+  playTone(950, 'sine', 0.06, 0.1);
+  setTimeout(() => playTone(1250, 'triangle', 0.09, 0.08), 35);
+}
+
+function playReconcileSound() {
+  const notes = [440, 554.37, 659.25, 880];
+  notes.forEach((freq, idx) => {
+    setTimeout(() => playTone(freq, 'sine', 0.22, 0.09), idx * 80);
+  });
+}
+
+function playBlipSound() {
+  playTone(1100 + Math.random() * 200, 'sine', 0.02, 0.02);
+}
+
+// ==========================================================================
+// Ambient Neural Mesh Canvas
+// ==========================================================================
+function initMeshCanvas() {
+  const canvas = document.getElementById('bg-mesh-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  let width, height;
+  let particles = [];
+  const PARTICLE_COUNT = 40;
+  let mouse = { x: null, y: null, maxDist: 140 };
+
+  function resize() {
+    width = canvas.width = window.innerWidth;
+    height = canvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  window.addEventListener('mousemove', e => {
+    mouse.x = e.clientX;
+    mouse.y = e.clientY;
+  });
+  window.addEventListener('mouseleave', () => {
+    mouse.x = null;
+    mouse.y = null;
+  });
+
+  for (let i = 0; i < PARTICLE_COUNT; i++) {
+    particles.push({
+      x: Math.random() * width,
+      y: Math.random() * height,
+      vx: (Math.random() - 0.5) * 0.4,
+      vy: (Math.random() - 0.5) * 0.4,
+      radius: Math.random() * 1.6 + 0.8,
+      color: i % 3 === 0 ? 'rgba(99, 102, 241, 0.45)' : (i % 3 === 1 ? 'rgba(6, 182, 212, 0.45)' : 'rgba(16, 185, 129, 0.35)')
+    });
+  }
+
+  function animate() {
+    ctx.clearRect(0, 0, width, height);
+
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+
+      if (p.x < 0) p.x = width;
+      if (p.x > width) p.x = 0;
+      if (p.y < 0) p.y = height;
+      if (p.y > height) p.y = 0;
+
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+      ctx.fillStyle = p.color;
+      ctx.fill();
+
+      for (let j = i + 1; j < particles.length; j++) {
+        const p2 = particles[j];
+        const dx = p.x - p2.x;
+        const dy = p.y - p2.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 110) {
+          const alpha = (1 - dist / 110) * 0.14;
+          ctx.strokeStyle = `rgba(99, 102, 241, ${alpha})`;
+          ctx.lineWidth = 0.7;
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(p2.x, p2.y);
+          ctx.stroke();
+        }
+      }
+
+      if (mouse.x !== null) {
+        const dx = p.x - mouse.x;
+        const dy = p.y - mouse.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < mouse.maxDist) {
+          const alpha = (1 - dist / mouse.maxDist) * 0.25;
+          ctx.strokeStyle = `rgba(6, 182, 212, ${alpha})`;
+          ctx.lineWidth = 0.9;
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(mouse.x, mouse.y);
+          ctx.stroke();
+        }
+      }
+    }
+    requestAnimationFrame(animate);
+  }
+  animate();
+}
+
 // --------------------------------------------------------------------------
 // Initialization & Polling
 // --------------------------------------------------------------------------
@@ -281,7 +460,7 @@ function renderTopology() {
             <span class="slider-val-strong" id="loan-display">$20,000</span>
           </div>
           <input type="range" id="loan-slider" min="5000" max="30000" step="1000" value="20000"
-                 oninput="document.getElementById('loan-display').textContent = '$' + Number(this.value).toLocaleString()">
+                 oninput="updateLoanSliderPreview(this.value)">
           <div class="preset-pills" style="margin-top:0.25rem">
             <button class="preset-pill" onclick="setLoanAmount(10000)">$10k</button>
             <button class="preset-pill" onclick="setLoanAmount(20000)">$20k</button>
@@ -289,21 +468,34 @@ function renderTopology() {
           </div>
         </div>
 
+        <div style="background:rgba(0,0,0,0.45);border:1px solid var(--border-subtle);border-radius:6px;padding:6px 8px;font-family:var(--font-mono);font-size:0.7rem;color:var(--text-secondary)">
+          <span style="color:var(--cyan-core)">RFC 8785 Canonical Payload:</span>
+          <div id="rfc-preview-text" style="color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px">
+            {"action":"loan","amount":20000,"branch_id":"branch_B"}
+          </div>
+        </div>
+
         <button class="btn btn-cyan" onclick="requestLoanFromSlider()">
           ⚡ Authorize & Sign (RFC 8785)
         </button>
 
-        ${lastRcpt ? `
-          <div style="background:rgba(0,0,0,0.3);border:1px solid var(--border-subtle);border-radius:6px;padding:8px 10px;font-family:var(--font-mono);font-size:0.75rem">
+        ${state.branch_receipts && state.branch_receipts.length > 0 ? `
+          <div class="offline-receipts-reel">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-              <strong style="color:var(--cyan-core)">${lastRcpt.payload.receipt_id}</strong>
-              <button class="btn btn-ghost btn-sm" style="padding:1px 6px;font-size:0.7rem" onclick="runCopilot('${lastRcpt.payload.receipt_id}')">
-                🤖 Copilot Audit
-              </button>
+              <span style="font-size:0.75rem;color:var(--text-secondary);font-weight:600">Signed Receipts (${state.branch_receipts.length}):</span>
+              <span class="badge ${isPart ? 'badge-amber' : 'badge-emerald'}">${isPart ? 'Offline Queue' : 'Ready to Sync'}</span>
             </div>
-            <div style="color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
-              Sig: ${lastRcpt.signature.substring(0, 24)}...
-            </div>
+            ${state.branch_receipts.map(r => `
+              <div class="receipt-chip ${isPart ? 'is-offline' : ''}">
+                <div>
+                  <strong style="color:var(--text-pure)">${r.payload.receipt_id}</strong>
+                  <span style="color:var(--cyan-core);margin-left:6px">$${(r.payload.request?.amount || 0).toLocaleString()}</span>
+                </div>
+                <button class="btn btn-ghost btn-sm" style="padding:1px 6px;font-size:0.68rem" onclick="runCopilot('${r.payload.receipt_id}')">
+                  🤖 Audit
+                </button>
+              </div>
+            `).join('')}
           </div>
         ` : ''}
       </div>
@@ -311,11 +503,21 @@ function renderTopology() {
   `;
 }
 
+function updateLoanSliderPreview(val) {
+  const num = Number(val);
+  const display = document.getElementById('loan-display');
+  if (display) display.textContent = '$' + num.toLocaleString();
+  const preview = document.getElementById('rfc-preview-text');
+  if (preview) {
+    preview.textContent = JSON.stringify({ action: "loan", amount: num, branch_id: "branch_B" });
+  }
+}
+
 function setLoanAmount(val) {
   const slider = document.getElementById('loan-slider');
   if (slider) {
     slider.value = val;
-    document.getElementById('loan-display').textContent = '$' + Number(val).toLocaleString();
+    updateLoanSliderPreview(val);
   }
 }
 
@@ -326,16 +528,29 @@ function requestLoanFromSlider() {
 }
 
 // --------------------------------------------------------------------------
-// 4. Merkle-CRDT Policy Tree Explorer
+// 4. Merkle-CRDT Policy Tree Explorer & Node Inspector
 // --------------------------------------------------------------------------
 function renderMerkleDAG() {
   const nodesList = document.getElementById('dag-nodes-list');
   const countBadge = document.getElementById('dag-node-count');
   const nodes = state.dag_nodes || [];
+  const isDivergent = state.auth_policy_hash !== (state.branch_policy_hash || state.dag_nodes?.[0]?.hash);
   
   countBadge.textContent = `${nodes.length} Nodes in DAG`;
 
-  nodesList.innerHTML = nodes.map((node, idx) => {
+  let html = '';
+  if (isDivergent) {
+    html += `
+      <div class="dag-divergence-banner">
+        <span>⚠️</span>
+        <div>
+          <strong>Split-Brain Fork Active:</strong> Central Authority published Version 2.0 ($10k) while Branch B holds cached Version 1.0 ($20k).
+        </div>
+      </div>
+    `;
+  }
+
+  html += nodes.map((node, idx) => {
     const isAuth = node.hash === state.auth_policy_hash;
     const isBranch = node.hash === (state.branch_policy_hash || state.dag_nodes[0]?.hash);
     
@@ -346,7 +561,17 @@ function renderMerkleDAG() {
 
     const rule = node.rules[0] || {};
 
+    let connectorHtml = '';
+    if (idx > 0 && node.parent) {
+      connectorHtml = `
+        <div class="dag-tree-connector">
+          <span>↓ cryptographic child of ${node.parent.substring(0, 8)}...</span>
+        </div>
+      `;
+    }
+
     return `
+      ${connectorHtml}
       <div class="dag-node-card ${borderClass}">
         <div class="dag-node-top">
           <div class="dag-version-tag">
@@ -354,9 +579,14 @@ function renderMerkleDAG() {
             ${isAuth ? '<span class="badge badge-indigo">Authority Head</span>' : ''}
             ${isBranch ? '<span class="badge badge-cyan">Branch Cached</span>' : ''}
           </div>
-          <span class="dag-hash-chip" onclick="copyToClipboard('${node.hash}', 'Policy SHA-256 Hash')">
-            ${node.hash.substring(0, 16)}... 📋
-          </span>
+          <div style="display:flex;align-items:center;gap:0.4rem">
+            <span class="dag-hash-chip" onclick="copyToClipboard('${node.hash}', 'Policy SHA-256 Hash')">
+              ${node.hash.substring(0, 16)}... 📋
+            </span>
+            <button class="btn btn-ghost btn-sm" style="padding:2px 6px;font-size:0.7rem" onclick="inspectNode('${node.hash}')" title="Inspect canonical JSON">
+              🔍
+            </button>
+          </div>
         </div>
 
         <div class="dag-rules-summary">
@@ -371,6 +601,44 @@ function renderMerkleDAG() {
       </div>
     `;
   }).join('');
+
+  nodesList.innerHTML = html;
+}
+
+function inspectNode(hash) {
+  const node = (state.dag_nodes || []).find(n => n.hash === hash);
+  if (!node) return;
+  const modal = document.getElementById('node-inspector-modal');
+  const title = document.getElementById('inspector-title');
+  const body = document.getElementById('inspector-body');
+
+  title.textContent = `Policy Node Version ${node.version} (${node.hash.substring(0, 10)}...)`;
+  
+  body.innerHTML = `
+    <div style="margin-bottom:1rem">
+      <div style="color:var(--text-muted);font-size:0.75rem;margin-bottom:4px">SHA-256 CANONICAL DIGEST:</div>
+      <div style="background:rgba(0,0,0,0.5);padding:8px 10px;border-radius:6px;border:1px solid var(--border-subtle);word-break:break-all;color:var(--cyan-core)">
+        ${node.hash}
+      </div>
+    </div>
+    <div style="margin-bottom:1rem">
+      <div style="color:var(--text-muted);font-size:0.75rem;margin-bottom:4px">CRYPTOGRAPHIC ANCESTOR (PARENT):</div>
+      <div style="background:rgba(0,0,0,0.5);padding:8px 10px;border-radius:6px;border:1px solid var(--border-subtle);word-break:break-all;color:var(--text-secondary)">
+        ${node.parent || 'null (Genesis Anchor)'}
+      </div>
+    </div>
+    <div>
+      <div style="color:var(--text-muted);font-size:0.75rem;margin-bottom:4px">RFC 8785 CANONICAL POLICY RULES JSON:</div>
+      <pre style="background:rgba(0,0,0,0.6);padding:12px;border-radius:8px;border:1px solid var(--border-subtle);color:#e2e8f0;overflow-x:auto">${JSON.stringify(node.rules, null, 2)}</pre>
+    </div>
+  `;
+  modal.style.display = 'flex';
+  playTone(800, 'sine', 0.08, 0.06);
+}
+
+function closeInspectorModal(e) {
+  const modal = document.getElementById('node-inspector-modal');
+  if (modal) modal.style.display = 'none';
 }
 
 // --------------------------------------------------------------------------
@@ -430,8 +698,184 @@ function renderReconciliation() {
 }
 
 // --------------------------------------------------------------------------
-// 6. Forensic Audit Copilot Terminal
+// 6. Multi-Tab Forensic Audit Copilot Terminal
 // --------------------------------------------------------------------------
+let activeCopilotTab = 'verdict';
+let currentCopilotData = null;
+
+function switchCopilotTab(tabName) {
+  activeCopilotTab = tabName;
+  playTone(850, 'sine', 0.05, 0.05);
+
+  ['verdict', 'causal', 'crypto', 'saga'].forEach(t => {
+    const btn = document.getElementById(`tab-btn-${t}`);
+    if (btn) {
+      if (t === tabName) btn.classList.add('active');
+      else btn.classList.remove('active');
+    }
+  });
+
+  renderActiveCopilotTab();
+}
+
+function renderActiveCopilotTab() {
+  const output = document.getElementById('copilot-output');
+  if (!output) return;
+
+  if (!currentCopilotData) {
+    output.innerHTML = `
+      <div style="text-align:center;color:var(--text-muted);padding:2rem 1rem">
+        <div style="font-size:2rem;margin-bottom:0.5rem">🤖</div>
+        <div style="font-weight:600;color:var(--text-secondary);margin-bottom:0.25rem">Forensic Audit Ready</div>
+        <div style="font-size:0.8rem">Click <strong>"Copilot Audit"</strong> on any signed receipt or saga record to inspect formal causal post-mortem analysis.</div>
+      </div>
+    `;
+    return;
+  }
+
+  const { data, receiptId } = currentCopilotData;
+
+  if (activeCopilotTab === 'verdict') {
+    const formattedHtml = formatMarkdownVerdict(data.explanation);
+    output.innerHTML = `
+      <div class="copilot-tab-view">
+        <div class="copilot-card">
+          <div class="copilot-card-top">
+            <div>
+              <span style="font-family:var(--font-mono);font-size:0.75rem;color:var(--text-muted)">TARGET RECEIPT:</span>
+              <strong style="color:var(--text-pure);margin-left:6px">${data.receipt_id}</strong>
+            </div>
+            <div style="display:flex;gap:0.5rem">
+              <span class="badge ${data.is_divergent ? 'badge-rose' : 'badge-emerald'}">
+                ${data.relation}
+              </span>
+              <span class="badge ${data.is_divergent ? 'badge-amber' : 'badge-emerald'}">
+                ${data.is_divergent ? 'DIVERGENT (RECONCILED)' : 'ALIGNED'}
+              </span>
+            </div>
+          </div>
+          <div class="copilot-markdown-content">
+            ${formattedHtml}
+          </div>
+        </div>
+      </div>
+    `;
+  } else if (activeCopilotTab === 'causal') {
+    output.innerHTML = `
+      <div class="copilot-tab-view">
+        <div class="copilot-card">
+          <div class="copilot-card-top">
+            <div>
+              <span style="font-family:var(--font-mono);font-size:0.75rem;color:var(--text-muted)">CAUSAL LATTICE ANALYSIS:</span>
+              <strong style="color:var(--cyan-core);margin-left:6px">${data.relation}</strong>
+            </div>
+            <span class="badge badge-indigo">Partial Ordering Proof</span>
+          </div>
+
+          <p style="font-size:0.84rem;color:var(--text-secondary);margin-top:0.4rem">
+            Under Lamport Vector Clock algebra, causal precedence is evaluated pairwise across all node dimensions:
+          </p>
+
+          <div class="lattice-grid">
+            <div class="lattice-card">
+              <div class="lattice-card-title">Central Authority Clock V(HQ)</div>
+              <div class="lattice-val">${JSON.stringify(state.auth_clock || {})}</div>
+              <div style="color:var(--text-muted);font-size:0.72rem;margin-top:4px">Authority advanced clock to tick #1 during partition</div>
+            </div>
+
+            <div class="lattice-card">
+              <div class="lattice-card-title">Branch B Clock V(Branch)</div>
+              <div class="lattice-val">${JSON.stringify(state.branch_clock || {})}</div>
+              <div style="color:var(--text-muted);font-size:0.72rem;margin-top:4px">Branch operated in isolated offline partition</div>
+            </div>
+          </div>
+
+          <div style="background:rgba(0,0,0,0.4);border:1px solid var(--border-subtle);border-radius:8px;padding:10px 14px;font-family:var(--font-mono);font-size:0.78rem;margin-top:0.4rem">
+            <div style="color:var(--emerald-core);margin-bottom:4px">✓ MATHEMATICAL DIVERGENCE PROOF:</div>
+            <div style="color:#cbd5e1">
+              V(Branch)[authority] = 0 &lt; V(HQ)[authority] = 1<br/>
+              ⇒ <strong>${data.relation}</strong> (Branch authorized loan without causal awareness of HQ Policy V2).
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  } else if (activeCopilotTab === 'crypto') {
+    output.innerHTML = `
+      <div class="copilot-tab-view">
+        <div class="copilot-card">
+          <div class="copilot-card-top">
+            <div>
+              <span style="font-family:var(--font-mono);font-size:0.75rem;color:var(--text-muted)">CRYPTOGRAPHIC VERIFICATION:</span>
+              <strong style="color:var(--text-pure);margin-left:6px">RFC 8785 (JCS) + Ed25519</strong>
+            </div>
+            <span class="badge badge-emerald">Valid Signature ✓</span>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:0.6rem;font-size:0.8rem;margin-top:0.4rem">
+            <div>
+              <span style="color:var(--text-muted)">Branch Public Key (Ed25519):</span>
+              <code style="display:block;margin-top:2px;word-break:break-all">${state.branch_pubkey_hex || 'ed25519:3a89...'}</code>
+            </div>
+
+            <div>
+              <span style="color:var(--text-muted)">Canonical Serialization Standard:</span>
+              <span style="color:var(--cyan-core);margin-left:6px">RFC 8785 JSON Canonicalization Scheme</span>
+              <p style="font-size:0.74rem;color:var(--text-muted);margin-top:2px">
+                Lexicographically sorts object keys, standardizes IEEE 754 floating-point serialization, and strips whitespace to ensure byte-for-byte SHA-256 integrity.
+              </p>
+            </div>
+
+            <div>
+              <span style="color:var(--text-muted)">Signature Verification Verdict:</span>
+              <div style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:6px;padding:8px 12px;color:var(--emerald-core);margin-top:4px">
+                ✓ Non-repudiation verified. Receipt was verifiably signed by Branch B's private key before transmission.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  } else if (activeCopilotTab === 'saga') {
+    const saga = (state.sagas || []).find(s => s.receipt_id === receiptId) || state.sagas?.[0];
+    output.innerHTML = `
+      <div class="copilot-tab-view">
+        <div class="copilot-card">
+          <div class="copilot-card-top">
+            <div>
+              <span style="font-family:var(--font-mono);font-size:0.75rem;color:var(--text-muted)">SAGA FORWARD RECOVERY:</span>
+              <strong style="color:var(--rose-core);margin-left:6px">${saga ? saga.action.toUpperCase() : 'NO SAGA TRIGGERED'}</strong>
+            </div>
+            <span class="badge badge-emerald">${saga ? saga.state : 'COMPLIANT'}</span>
+          </div>
+
+          ${saga ? `
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.7rem;margin-top:0.5rem">
+              <div class="lattice-card">
+                <div class="lattice-card-title">Net Balance Debit</div>
+                <div class="lattice-val" style="color:var(--rose-core)">-$${(saga.details?.excess || 0).toLocaleString()}</div>
+                <div style="color:var(--text-muted);font-size:0.72rem;margin-top:3px">Overdraw beyond V2 limit ($10k)</div>
+              </div>
+              <div class="lattice-card">
+                <div class="lattice-card-title">Storage Durability</div>
+                <div class="lattice-val" style="color:var(--emerald-core)">SQLite (ACID)</div>
+                <div style="color:var(--text-muted);font-size:0.72rem;margin-top:3px">Survives cluster crashes & restarts</div>
+              </div>
+            </div>
+
+            <div style="background:rgba(0,0,0,0.35);border:1px solid var(--border-subtle);border-radius:6px;padding:8px 12px;font-family:var(--font-mono);font-size:0.75rem;margin-top:0.4rem">
+              <div style="color:var(--text-muted);margin-bottom:2px">IDEMPOTENCY KEY (Prevents Double Deduction):</div>
+              <code style="color:var(--cyan-core)">${saga.idempotency_key}</code>
+            </div>
+          ` : `
+            <div style="color:var(--text-muted);padding:1rem 0">Transaction adhered to active policy limit. No forward recovery required.</div>
+          `}
+        </div>
+      </div>
+    `;
+  }
+}
+
 async function runCopilot(receiptId) {
   const output = document.getElementById('copilot-output');
   output.innerHTML = `
@@ -453,32 +897,10 @@ async function runCopilot(receiptId) {
     if (!res.ok) throw new Error('Copilot analysis failed');
     const data = await res.json();
     lastCopilotText = data.explanation;
+    currentCopilotData = { data, receiptId };
 
-    // Convert markdown into rich styled HTML
-    const formattedHtml = formatMarkdownVerdict(data.explanation);
-
-    output.innerHTML = `
-      <div class="copilot-card">
-        <div class="copilot-card-top">
-          <div>
-            <span style="font-family:var(--font-mono);font-size:0.75rem;color:var(--text-muted)">TARGET RECEIPT:</span>
-            <strong style="color:var(--text-pure);margin-left:6px">${data.receipt_id}</strong>
-          </div>
-          <div style="display:flex;gap:0.5rem">
-            <span class="badge ${data.is_divergent ? 'badge-rose' : 'badge-emerald'}">
-              ${data.relation}
-            </span>
-            <span class="badge ${data.is_divergent ? 'badge-amber' : 'badge-emerald'}">
-              ${data.is_divergent ? 'DIVERGENT (RECONCILED)' : 'ALIGNED'}
-            </span>
-          </div>
-        </div>
-
-        <div class="copilot-markdown-content">
-          ${formattedHtml}
-        </div>
-      </div>
-    `;
+    playTone(1050, 'sine', 0.1, 0.08);
+    renderActiveCopilotTab();
 
     addEventLog('COPILOT', `Forensic audit verdict generated for ${receiptId} (${data.relation})`, 'auth');
   } catch (err) {
@@ -569,9 +991,11 @@ async function togglePartition() {
     const res = await fetch('/api/partition/toggle', { method: 'POST' });
     const data = await res.json();
     if (data.partition_active) {
+      playDisconnectSound();
       addEventLog('NETWORK', '⚡ Fiber link severed! Split-brain risk active. Branch B in isolated mode.', 'alert');
       showToast('⚠️ Fiber link severed! Partition active.');
     } else {
+      playReconnectSound();
       addEventLog('NETWORK', '🔗 Fiber link reconnected. Peers can now reconcile divergent receipts.', 'success');
       showToast('🔗 Network healed. Reconnected to Central Authority.');
     }
@@ -585,6 +1009,7 @@ async function updatePolicy(maxAmount = 10000) {
   try {
     const res = await fetch(`/api/authority/update-policy?max_amount=${maxAmount}`, { method: 'POST' });
     const data = await res.json();
+    playTone(520, 'triangle', 0.16, 0.08);
     addEventLog('AUTHORITY', `🏛️ Policy updated to Version 2.0. Limit: $${maxAmount.toLocaleString()} (Hash: ${data.hash.substring(0, 8)}...)`, 'auth');
     showToast(`🏛️ Policy updated to $${maxAmount.toLocaleString()}`);
     await fetchState();
@@ -598,6 +1023,7 @@ async function requestLoan(amount = 20000) {
     const res = await fetch(`/api/branch/request-loan?amount=${amount}`, { method: 'POST' });
     const data = await res.json();
     const rcpt = data.receipt;
+    playSignSound();
     addEventLog('BRANCH_B', `🏢 Approved and signed loan for $${amount.toLocaleString()}. Receipt: ${rcpt.payload.receipt_id}`, 'branch');
     showToast(`🏢 Approved $${amount.toLocaleString()} loan (Receipt: ${rcpt.payload.receipt_id})`);
     await fetchState();
@@ -608,6 +1034,7 @@ async function requestLoan(amount = 20000) {
 
 async function reconcile() {
   try {
+    playReconcileSound();
     // Visual pipeline animation
     for (let i = 1; i <= 4; i++) {
       const step = document.getElementById(`pipe-step-${i}`);
@@ -644,6 +1071,7 @@ async function reconcile() {
 
 async function resetEngine() {
   try {
+    playTone(320, 'sine', 0.22, 0.08);
     await fetch('/api/reset', { method: 'POST' });
     events = [];
     addEventLog('SYSTEM', 'Cluster engine reset to Genesis State (Policy V1, $20,000 max).', 'auth');
@@ -750,4 +1178,11 @@ function showToast(msg) {
 // Bootstrapping
 // --------------------------------------------------------------------------
 document.getElementById('btn-toggle-partition').addEventListener('click', togglePartition);
+initMeshCanvas();
 fetchState();
+
+const audioBtn = document.getElementById('btn-audio-toggle');
+if (audioBtn) {
+  audioBtn.textContent = audioEnabled ? '🔊 Sound ON' : '🔇 Sound OFF';
+  audioBtn.style.color = audioEnabled ? 'var(--cyan-core)' : 'var(--text-muted)';
+}

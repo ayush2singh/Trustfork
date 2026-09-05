@@ -10,6 +10,8 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <!-- Ambient Neural Mesh Background Canvas -->
+  <canvas id="bg-mesh-canvas" class="bg-mesh-canvas"></canvas>
 
   <div class="app-container">
     
@@ -31,6 +33,7 @@
       </div>
 
       <div class="nav-actions">
+        <button id="btn-audio-toggle" class="btn btn-ghost" onclick="toggleAudio()" title="Toggle Synthesized Cyber Audio">🔊 Sound ON</button>
         <button id="btn-toggle-partition" class="btn btn-warning">⚡ Sever Fiber Link</button>
         <button id="btn-auto-play" class="btn btn-primary" onclick="startAutoPlayDemo()">▶️ Auto-Play Story</button>
         <button id="btn-reset" class="btn btn-ghost" onclick="resetEngine()">↺ Reset</button>
@@ -170,6 +173,14 @@
             </div>
           </div>
 
+          <!-- Multi-Tab Terminal Navigation -->
+          <div class="terminal-tab-bar" id="copilot-tab-bar">
+            <button class="term-tab active" id="tab-btn-verdict" onclick="switchCopilotTab('verdict')">💬 Executive Verdict</button>
+            <button class="term-tab" id="tab-btn-causal" onclick="switchCopilotTab('causal')">⏱️ Causal Lattice</button>
+            <button class="term-tab" id="tab-btn-crypto" onclick="switchCopilotTab('crypto')">🔏 Cryptographic Proof</button>
+            <button class="term-tab" id="tab-btn-saga" onclick="switchCopilotTab('saga')">🛡️ Saga Compensation</button>
+          </div>
+
           <div class="terminal-viewport" id="copilot-output">
             <div style="text-align:center;color:var(--text-muted);padding:2rem 1rem">
               <div style="font-size:2rem;margin-bottom:0.5rem">🤖</div>
@@ -197,6 +208,22 @@
       </div>
 
     </main>
+
+    <!-- Policy Node Inspector Modal -->
+    <div class="modal-overlay" id="node-inspector-modal" style="display:none" onclick="closeInspectorModal(event)">
+      <div class="modal-card" onclick="event.stopPropagation()">
+        <div class="modal-header">
+          <div style="display:flex;align-items:center;gap:0.6rem">
+            <span style="font-size:1.2rem">🔍</span>
+            <h3 id="inspector-title" style="font-family:var(--font-display);font-size:1.1rem;color:var(--text-pure)">Policy Node Canonical Inspector</h3>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="closeInspectorModal()">✕</button>
+        </div>
+        <div class="modal-body" id="inspector-body">
+          <!-- Populated dynamically in app.js -->
+        </div>
+      </div>
+    </div>
 
     <!-- Toast Container -->
     <div class="toast-container" id="toast-container"></div>
