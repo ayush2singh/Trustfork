@@ -74,35 +74,8 @@ This document records the foundational architectural decisions made in **TrustFo
 
 ---
 
-## ADR 006: Python 3.12 + `uv` Package Manager over pip / poetry
+## ADR 006: Semantic Version Tag-Gated CD Delivery (`v*`) over Branch-Push Triggers
 
-* **Status**: Accepted
-* **Context**: Modern distributed systems prototypes require fast, deterministic virtual environments, rapid dependency resolution, and fast CI execution.
-* **Decision**: Adopt Python 3.12 with **`uv`** as the universal workspace package manager, managing dependencies via `pyproject.toml` and lockfile stability via `uv.lock`.
-* **Alternatives Considered**:
-  * *Standard `pip` + `venv`*: Slow installations; lack of deterministic lockfile without heavy tooling.
-  * *Poetry / Pipenv*: Significant dependency resolution latency and heavy overhead in CI pipelines.
-* **Trade-offs**:
-  * ✅ **Advantage**: 10x–100x faster installs in CI; native Rust binary; seamless workspace support.
-  * ⚠️ **Trade-off**: Newer tool in the Python ecosystem; requires developers or CI to have `uv` installed.
-
----
-
-## ADR 007: Debian-slim Base Image (`python:3.12-slim`) over Alpine Linux
-
-* **Status**: Accepted
-* **Context**: TrustFork relies on `pynacl`, which binds to C `libsodium` for Ed25519 cryptography. In container builds, base image selection directly impacts build times and stability.
-* **Decision**: Use `python:3.12-slim` (Debian GNU `glibc`) rather than `python:3.12-alpine` (`musl libc`) in `Dockerfile`.
-* **Alternatives Considered**:
-  * *`python:3.12-alpine`*: Smaller raw base footprint (~50MB vs ~150MB), but lacks precompiled `musl` binary wheels for `pynacl`, forcing Docker to install `gcc`, `make`, and compile C code from scratch on every build.
-  * *Full `python:3.12`*: Bloated image (>1GB) containing unnecessary build tools.
-* **Trade-offs**:
-  * ✅ **Advantage**: Instant package installation via pre-built `manylinux` wheels; zero compilation risk; 3-second cached builds.
-  * ⚠️ **Trade-off**: Base image is ~100MB larger than an empty Alpine container.
-
----
-
-## ADR 008: Semantic Version Tag-Gated CD Delivery (`v*`) over Branch-Push Triggers
 
 * **Status**: Accepted
 * **Context**: Continuous Deployment must package and publish production container images to GitHub Container Registry (`ghcr.io`) without polluting registries with unstable development commits.
