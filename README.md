@@ -103,7 +103,14 @@ Open **[http://localhost:8000](http://localhost:8000)** in your browser:
 * Issue loans at Branch B under disconnected state.
 * Click **Heal & Reconcile** to observe DAG convergence and Saga execution.
 
+### Option C: Run via Docker (Zero-Install)
+Pull and run the prebuilt production container directly from GitHub Container Registry:
+```bash
+docker run -p 8000:8000 ghcr.io/ayush2singh/trustfork:latest
+```
+
 ---
+
 
 ## Test Suite & Verification
 
