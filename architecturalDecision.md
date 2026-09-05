@@ -4,6 +4,38 @@ This document records the foundational architectural decisions made in **TrustFo
 
 ---
 
+## System Architecture Topology
+
+The following diagram maps each architectural decision to its corresponding runtime component:
+
+```mermaid
+graph TD
+    subgraph Edge["Edge Branch Node (ADR 001: AP Model)"]
+        DAG_Edge["Merkle Policy DAG<br/>(PolicyNode) [ADR 002]"] -->|Evaluate Rules| Eval["Local Evaluation<br/>(ALLOW / DENY)"]
+        Eval -->|Attach Clock| VC_Edge["Vector Clock<br/>(vc_branch) [ADR 004]"]
+        VC_Edge --> Signer["RFC 8785 Canonicalizer<br/>+ Ed25519 Signer [ADR 003]"]
+        Signer -->|Issue Proof| Receipt["Signed Authorization Receipt<br/>(Ed25519)"]
+    end
+
+    Receipt -.->|Partition Severed / Healed| Recon["TrustFork Reconciler<br/>(reconciler.py)"]
+
+    subgraph Central["Central Authority & Reconciler (ADR 005: Sagas)"]
+        Recon -->|1. Verify Signature| Verify["Ed25519 VerifyKey [ADR 003]"]
+        Recon -->|2. Check Defensibility| DAG_Auth["Authority Merkle DAG [ADR 002]"]
+        Recon -->|3. Causal Comparison| Causal["VectorClock.compare() [ADR 004]"]
+        Causal -->|Divergence Detected| SagaOrch["Saga Orchestrator<br/>(saga_orchestrator.py)"]
+        SagaOrch -->|Idempotent Recovery| SQLite["SQLite Saga Store<br/>(saga_store.py) [ADR 005]"]
+    end
+
+    subgraph Delivery["Release Automation (ADR 006: CD)"]
+        Tag["Git Tag (v*)"] --> GHA["GitHub Actions CD"]
+        GHA --> GHCR["Docker Image (ghcr.io) [ADR 006]"]
+    end
+```
+
+---
+
+
 ## ADR 001: Choose AP with Verifiable Convergence over Strict CP (CAP Theorem)
 
 * **Status**: Accepted
