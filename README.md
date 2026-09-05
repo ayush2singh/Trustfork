@@ -26,7 +26,10 @@ In naive AP architectures (high availability), partitioned nodes operate blindly
 3. Logical vector clocks capture causal ordering without relying on NTP clocks.
 4. When the network heals, an automated Saga reconciler applies forward-recovery compensation.
 
+👉 **For the full trade-off analysis of all 8 core design choices, see [architecturalDecision.md](architecturalDecision.md).**
+
 ---
+
 
 ## Architecture & Workflow
 
