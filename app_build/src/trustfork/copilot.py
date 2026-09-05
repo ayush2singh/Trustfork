@@ -32,18 +32,32 @@ class AuditCopilot:
         saga_record = self.store.get(idempotency_key)
 
         
-        # 4. Generate forensic explanation
-        analysis = []
-        analysis.append(f"**Receipt Analysis: `{receipt_id}`**")
-        analysis.append(f"- **Requested Action**: `{action}` for `${amount:,.2f}`")
-        analysis.append(f"- **Causal Relationship**: `{relation.value}` (Branch operated concurrently without knowing HQ updates).")
-        
-        if is_divergent:
-            analysis.append(f"- **DAG Divergence**: Policy Hash `{rcpt_hash[:12]}...` (Branch V1) diverged from Authority `{auth_hash[:12]}...` (Authority V2 limit: `${auth_limit:,.2f}`).")
-            if saga_record:
-                analysis.append(f"- **Saga Resolution**: Dispatched forward-recovery `{saga_record.action}` for excess `${saga_record.details.get('excess', 0):,.2f}`. State is `{saga_record.state.value}` via key `{idempotency_key}`.")
+        # 4. Generate clean executive audit explanation
+        if relation == CausalRelation.HAPPENS_BEFORE:
+            causal_desc = "Causally preceded Central Authority's latest update"
+        elif relation == CausalRelation.CONCURRENT:
+            causal_desc = "Concurrent split-brain (branch was severed when update occurred)"
+        elif relation == CausalRelation.EQUAL:
+            causal_desc = "Fully synchronized with Central Authority"
         else:
-            analysis.append("- **Status**: Aligned with Authority. Transaction fully committed without divergence.")
+            causal_desc = relation.value
+
+        lines = []
+        if is_divergent:
+            excess = saga_record.details.get("excess", 0) if saga_record else 0
+            lines.append(f"### 📋 Audit Verdict: Reconciled with Compensation")
+            lines.append(f"• **Receipt ID**: `{receipt_id}`")
+            lines.append(f"• **Offline Request**: Approved `${amount:,.2f}` `{action}` under local policy (`{rcpt_hash[:8]}...`).")
+            lines.append(f"• **Causal Context**: {causal_desc}.")
+            lines.append(f"• **Divergence Detected**: Central Authority was updated to a `${auth_limit:,.2f}` limit (`{auth_hash[:8]}...`).")
+            if saga_record:
+                lines.append(f"• **Forward Recovery**: Dispatched automated `{saga_record.action}` for **`${excess:,.2f}`** excess. Idempotency Key: `{idempotency_key}` (`{saga_record.state.value}`).")
+        else:
+            lines.append(f"### 📋 Audit Verdict: Committed (Aligned)")
+            lines.append(f"• **Receipt ID**: `{receipt_id}`")
+            lines.append(f"• **Transaction**: Approved `${amount:,.2f}` `{action}` under policy (`{rcpt_hash[:8]}...`).")
+            lines.append(f"• **Causal Context**: {causal_desc}.")
+            lines.append(f"• **Resolution**: Decision is fully defensible under the authoritative policy tree. No compensation needed.")
 
         return {
             "receipt_id": receipt_id,
@@ -51,5 +65,6 @@ class AuditCopilot:
             "relation": relation.value,
             "is_divergent": is_divergent,
             "saga": saga_record.__dict__ if saga_record else None,
-            "explanation": "\n".join(analysis)
+            "explanation": "\n".join(lines)
         }
+

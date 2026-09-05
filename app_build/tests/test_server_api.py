@@ -51,6 +51,6 @@ def test_api_simulation_lifecycle():
     assert copilot_res.status_code == 200
     c_data = copilot_res.json()
     assert c_data["is_divergent"] is True
-    assert "Receipt Analysis" in c_data["explanation"]
-    assert "Dispatched forward-recovery" in c_data["explanation"]
+    assert "Audit Verdict" in c_data["explanation"]
+    assert "Forward Recovery" in c_data["explanation"]
 
