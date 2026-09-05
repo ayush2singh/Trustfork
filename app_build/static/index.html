@@ -3,52 +3,207 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TrustFork | Partition-Tolerant Distributed Authorization</title>
+  <title>TrustFork | Partition-Tolerant Distributed Authorization Engine</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
   <div class="app-container">
-    <header class="header">
-      <div class="brand">
-        <div class="brand-badge">TF</div>
-        <div>
-          <h1>TrustFork Engine</h1>
-          <p class="subtitle">Distributed Authorization & Partition-Tolerant Policy Enforcement</p>
+    
+    <!-- Top Command & Navigation Bar -->
+    <header class="top-navbar">
+      <div class="brand-wrapper">
+        <div class="brand-icon">TF</div>
+        <div class="brand-info">
+          <h1>TrustFork Engine <span class="brand-version">v1.0.0-PROD</span></h1>
+          <p class="brand-desc">Distributed Authorization, Merkle-CRDT Governance & Offline Split-Brain Sagas</p>
         </div>
       </div>
-      <div class="header-actions">
-        <button id="btn-toggle-partition" class="btn btn-warning">⚡ Sever Network Link</button>
-        <button id="btn-reset" class="btn btn-ghost">Reset Engine</button>
+
+      <div class="top-telemetry">
+        <div class="cluster-pill" id="cluster-status-badge">
+          <span class="status-beacon"></span>
+          <span id="cluster-status-text">CLUSTER HEALTHY (ONLINE)</span>
+        </div>
+      </div>
+
+      <div class="nav-actions">
+        <button id="btn-toggle-partition" class="btn btn-warning">⚡ Sever Fiber Link</button>
+        <button id="btn-auto-play" class="btn btn-primary" onclick="startAutoPlayDemo()">▶️ Auto-Play Story</button>
+        <button id="btn-reset" class="btn btn-ghost" onclick="resetEngine()">↺ Reset</button>
       </div>
     </header>
 
-    <!-- Visual Network Topology -->
-    <section class="topology-section" id="topology-container"></section>
-
-    <!-- Main Grid: Controls & Inspectors -->
-    <main class="dashboard-grid">
-      <div class="col left-col">
-        <div class="card" id="card-authority"></div>
-        <div class="card" id="card-branch"></div>
-      </div>
-      <div class="col right-col">
-        <div class="card" id="card-merkle-dag"></div>
-        <div class="card" id="card-reconciliation"></div>
-        <div class="card" id="card-copilot">
-          <div class="card-header">
-            <h3>🤖 Forensic Audit Copilot</h3>
-            <span class="badge badge-info">LLM Analysis</span>
-          </div>
-          <div class="copilot-body" id="copilot-output">
-            <p class="placeholder-text">Click <strong>"Copilot Audit"</strong> on any receipt or history entry below for an instant forensic post-mortem.</p>
-          </div>
+    <!-- Guided Scenario Stepper -->
+    <section class="stepper-panel" id="scenario-stepper">
+      <div class="stepper-header">
+        <div class="stepper-title">
+          <span>🧭 Interactive Split-Brain & Reconciliation Walkthrough</span>
+        </div>
+        <div class="stepper-controls">
+          <button class="btn btn-ghost btn-sm" onclick="advanceStep(-1)">◀ Prev</button>
+          <button class="btn btn-cyan btn-sm" id="btn-next-step" onclick="executeCurrentStepAction()">Next Action 👉</button>
         </div>
       </div>
+
+      <div class="stepper-track" id="stepper-steps-container">
+        <!-- Generated dynamically in app.js -->
+      </div>
+
+      <div class="stepper-tip-box" id="stepper-guidance-box">
+        <span id="stepper-tip-text">Loading simulation guidance...</span>
+        <span id="stepper-action-hint"></span>
+      </div>
+    </section>
+
+    <!-- Network Topology & Animated Fiber Visualizer -->
+    <section class="topology-section" id="topology-container">
+      <!-- Generated dynamically in app.js -->
+    </section>
+
+    <!-- Main Grid: Merkle Tree, Reconciliation & Copilot -->
+    <main class="dashboard-grid">
+      
+      <!-- Left Column: DAG & Reconciliation Monitor -->
+      <div class="col left-col">
+        
+        <!-- Merkle-CRDT Policy Tree -->
+        <div class="panel-card" id="card-merkle-dag">
+          <div class="panel-header">
+            <div class="panel-title">🌳 Merkle-CRDT Policy Tree</div>
+            <span class="badge badge-indigo" id="dag-node-count">Loading...</span>
+          </div>
+          <div class="dag-nodes-container" id="dag-nodes-list">
+            <!-- Rendered in app.js -->
+          </div>
+        </div>
+
+        <!-- Reconciliation & Forward Recovery Saga Monitor -->
+        <div class="panel-card" id="card-reconciliation">
+          <div class="panel-header">
+            <div class="panel-title">⚖️ Reconciliation & Forward Recovery</div>
+            <button class="btn btn-primary btn-sm" id="btn-trigger-reconcile" onclick="reconcile()">Trigger Reconciliation</button>
+          </div>
+          
+          <div class="pipeline-steps-v2" id="pipeline-steps-container">
+            <div class="pipeline-step-item" id="pipe-step-1">
+              <div class="step-indicator-ring">1</div>
+              <div class="step-content">
+                <div class="step-title-text">RFC 8785 Ed25519 Cryptographic Verification</div>
+                <div class="step-desc-text">Guarantees non-repudiation and canonical payload integrity.</div>
+              </div>
+              <span class="step-time-chip" id="pipe-time-1">Idle</span>
+            </div>
+
+            <div class="pipeline-step-item" id="pipe-step-2">
+              <div class="step-indicator-ring">2</div>
+              <div class="step-content">
+                <div class="step-title-text">Historical Merkle Defensibility Check</div>
+                <div class="step-desc-text">Validates receipt was authorized under a legitimate DAG ancestor.</div>
+              </div>
+              <span class="step-time-chip" id="pipe-time-2">Idle</span>
+            </div>
+
+            <div class="pipeline-step-item" id="pipe-step-3">
+              <div class="step-indicator-ring">3</div>
+              <div class="step-content">
+                <div class="step-title-text">Vector Clock Causal Convergence</div>
+                <div class="step-desc-text">Determines HAPPENS_BEFORE vs CONCURRENT split-brain state.</div>
+              </div>
+              <span class="step-time-chip" id="pipe-time-3">Idle</span>
+            </div>
+
+            <div class="pipeline-step-item" id="pipe-step-4">
+              <div class="step-indicator-ring">4</div>
+              <div class="step-content">
+                <div class="step-title-text">Forward Recovery Saga Dispatch</div>
+                <div class="step-desc-text">Dispatches automated idempotent SQLite compensation (e.g. clawback).</div>
+              </div>
+              <span class="step-time-chip" id="pipe-time-4">Idle</span>
+            </div>
+          </div>
+
+          <div style="margin-top:0.5rem">
+            <div style="font-size:0.8rem;font-weight:600;color:var(--text-secondary);margin-bottom:0.5rem">DURABLE SAGA LEDGER (SQLite)</div>
+            <div class="saga-table-wrap">
+              <table class="saga-table-v2">
+                <thead>
+                  <tr>
+                    <th>Saga ID</th>
+                    <th>Action</th>
+                    <th>Excess</th>
+                    <th>Idempotency Key</th>
+                    <th>State</th>
+                    <th>Audit</th>
+                  </tr>
+                </thead>
+                <tbody id="saga-table-body">
+                  <!-- Sagas rendered dynamically -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Right Column: Copilot & Live Event Stream -->
+      <div class="col right-col">
+        
+        <!-- Forensic Audit Copilot Terminal -->
+        <div class="copilot-terminal" id="card-copilot">
+          <div class="terminal-titlebar">
+            <div class="window-dots">
+              <span class="dot dot-red"></span>
+              <span class="dot dot-yellow"></span>
+              <span class="dot dot-green"></span>
+            </div>
+            <div class="terminal-title">
+              <span>trustfork-copilot --forensic-audit</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:0.5rem">
+              <span class="badge badge-indigo">Deterministic Semantic NLG</span>
+              <button class="btn btn-ghost btn-sm" onclick="copyCopilotReport()" title="Copy audit report">📋 Copy</button>
+            </div>
+          </div>
+
+          <div class="terminal-viewport" id="copilot-output">
+            <div style="text-align:center;color:var(--text-muted);padding:2rem 1rem">
+              <div style="font-size:2rem;margin-bottom:0.5rem">🤖</div>
+              <div style="font-weight:600;color:var(--text-secondary);margin-bottom:0.25rem">Forensic Audit Ready</div>
+              <div style="font-size:0.8rem">Click <strong>"Copilot Audit"</strong> on any signed receipt or saga record to inspect formal causal post-mortem analysis.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Real-Time Activity Log & Event Stream Ticker -->
+        <div class="event-ticker-panel">
+          <div class="event-ticker-header">
+            <span>⚡ Cluster Event Stream (Live Telemetry)</span>
+            <span id="event-count-badge">0 Events</span>
+          </div>
+          <div class="event-stream-list" id="event-stream-container">
+            <div class="event-entry">
+              <span class="event-timestamp">[00:00:00.000]</span>
+              <span class="event-badge-auth">[SYSTEM]</span>
+              <span>Cluster initialized. Central Authority and Edge Branch B online.</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
     </main>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toast-container"></div>
+
   </div>
+
+  <!-- Controller Logic -->
   <script src="app.js"></script>
 
 </body>

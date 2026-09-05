@@ -43,6 +43,8 @@ def get_state():
     return {
         "partition_active": engine.partition_active,
         "auth_policy_hash": engine.auth_policy_hash,
+        "branch_policy_hash": engine.p1.hash,
+        "branch_pubkey_hex": engine.branch_key.verify_key.encode().hex(),
         "auth_clock": engine.reconciler.clock.to_dict(),
         "branch_clock": engine.branch_clock.to_dict(),
         "dag_nodes": [{"hash": n.hash, "version": n.version, "rules": n.rules, "parent": n.parent_hash} for n in engine.dag.nodes.values()],
