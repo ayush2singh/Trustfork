@@ -11,6 +11,7 @@ from trustfork.saga_orchestrator import SagaOrchestrator
 from trustfork.saga_store import SagaStore
 from trustfork.reconciler import TrustForkReconciler
 from trustfork.vector_clock import VectorClock
+from trustfork.copilot import AuditCopilot
 
 app = FastAPI(title="TrustFork Authorization Engine")
 
@@ -31,8 +32,11 @@ class SimulationEngine:
         self.branch_clock = VectorClock()
         self.branch_receipts: List[Dict[str, Any]] = []
         self.reconciliation_history: List[Dict[str, Any]] = []
+        self.all_receipts_by_id: Dict[str, Any] = {}
+        self.copilot = AuditCopilot(self.dag, self.store)
 
 engine = SimulationEngine()
+
 
 @app.get("/api/state")
 def get_state():
@@ -64,12 +68,29 @@ def update_policy(max_amount: int = 10000):
 @app.post("/api/branch/request-loan")
 def request_loan(amount: int = 20000):
     engine.branch_clock.increment("branch_B")
-    payload = {"receipt_id": f"RCPT-{len(engine.branch_receipts)+101}", "policy_hash": engine.p1.hash, "request": {"action": "loan", "amount": amount}, "vector_clock": engine.branch_clock.to_dict()}
+    payload = {"receipt_id": f"RCPT-{len(engine.all_receipts_by_id)+101}", "policy_hash": engine.p1.hash, "request": {"action": "loan", "amount": amount}, "vector_clock": engine.branch_clock.to_dict()}
     rcpt = ReceiptSigner.create_receipt(payload, engine.branch_key)
     engine.branch_receipts.append(rcpt)
+    engine.all_receipts_by_id[payload["receipt_id"]] = payload
     return {"status": "approved", "receipt": rcpt}
 
+class ExplainRequest(BaseModel):
+    receipt_id: str
+
+@app.post("/api/copilot/explain")
+def copilot_explain(req: ExplainRequest):
+    payload = engine.all_receipts_by_id.get(req.receipt_id)
+    if not payload:
+        raise HTTPException(status_code=404, detail="Receipt not found")
+    return engine.copilot.explain_receipt(
+        req.receipt_id,
+        payload,
+        engine.auth_policy_hash,
+        engine.reconciler.clock.to_dict()
+    )
+
 @app.post("/api/reconcile")
+
 def reconcile_all():
     if engine.partition_active:
         raise HTTPException(status_code=400, detail="Cannot reconcile while network partition is active!")

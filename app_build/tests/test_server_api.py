@@ -44,3 +44,13 @@ def test_api_simulation_lifecycle():
     final_state = client.get("/api/state").json()
     assert len(final_state["sagas"]) == 1
     assert final_state["sagas"][0]["state"] == "COMPENSATION_COMPLETE"
+
+    # 8. Test Copilot explanation
+    rcpt_id = rec_data["results"][0]["receipt_id"]
+    copilot_res = client.post("/api/copilot/explain", json={"receipt_id": rcpt_id})
+    assert copilot_res.status_code == 200
+    c_data = copilot_res.json()
+    assert c_data["is_divergent"] is True
+    assert "Receipt Analysis" in c_data["explanation"]
+    assert "Dispatched forward-recovery" in c_data["explanation"]
+

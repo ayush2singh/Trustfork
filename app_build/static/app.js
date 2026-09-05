@@ -74,13 +74,17 @@ function renderBranch() {
     </div>
     ${lastRcpt ? `
       <div class="code-box">
-        <strong>Last Signed Receipt (RFC 8785 Ed25519):</strong><br>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <strong>Last Signed Receipt (RFC 8785 Ed25519):</strong>
+          <button class="btn btn-ghost" style="font-size:0.75rem;padding:3px 8px" onclick="runCopilot('${lastRcpt.payload.receipt_id}')">🤖 Copilot Audit</button>
+        </div>
         Payload: ${JSON.stringify(lastRcpt.payload)}<br>
         Signature: <span style="color:var(--cyan)">${lastRcpt.signature.substring(0, 32)}...</span>
       </div>
     ` : '<p class="subtitle" style="font-style:italic">No receipts issued yet. Click Authorize to issue a loan.</p>'}
   `;
 }
+
 
 function renderMerkleDAG() {
   const card = document.getElementById('card-merkle-dag');
@@ -117,13 +121,38 @@ function renderReconciliation() {
     </div>
     ${sagas.length ? `
       <table class="saga-table">
-        <thead><tr><th>Saga ID</th><th>Action</th><th>Excess</th><th>State</th></tr></thead>
+        <thead><tr><th>Saga ID</th><th>Action</th><th>Excess</th><th>State</th><th>Audit</th></tr></thead>
         <tbody>
-          ${sagas.map(s => `<tr><td><code>${s.saga_id}</code></td><td>${s.action}</td><td>$${s.details?.excess || 0}</td><td><span class="badge badge-emerald">${s.state}</span></td></tr>`).join('')}
+          ${sagas.map(s => `<tr><td><code>${s.saga_id}</code></td><td>${s.action}</td><td>$${s.details?.excess || 0}</td><td><span class="badge badge-emerald">${s.state}</span></td><td><button class="btn btn-ghost" style="padding:2px 6px;font-size:0.75rem" onclick="runCopilot('${s.receipt_id}')">🤖 Audit</button></td></tr>`).join('')}
         </tbody>
       </table>
     ` : '<p class="subtitle" style="font-style:italic">No active sagas.</p>'}
   `;
+}
+
+async function runCopilot(receiptId) {
+  const output = document.getElementById('copilot-output');
+  output.innerHTML = '<p class="placeholder-text">🤖 Copilot analyzing Merkle DAG, Vector Clocks, and Saga Store...</p>';
+  try {
+    const res = await fetch('/api/copilot/explain', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({receipt_id: receiptId})
+    });
+    if (!res.ok) throw new Error('Could not analyze receipt');
+    const data = await res.json();
+    output.innerHTML = `
+      <div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.25);border-radius:8px;padding:12px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+          <strong>Receipt: ${data.receipt_id}</strong>
+          <span class="badge ${data.is_divergent ? 'badge-rose' : 'badge-emerald'}">${data.relation}</span>
+        </div>
+        <div style="font-size:0.85rem;line-height:1.5;white-space:pre-wrap;color:var(--text)">${data.explanation}</div>
+      </div>
+    `;
+  } catch (err) {
+    output.innerHTML = `<p style="color:var(--rose)">Failed to run copilot analysis: ${err.message}</p>`;
+  }
 }
 
 async function togglePartition() { await fetch('/api/partition/toggle', {method:'POST'}); fetchState(); }
@@ -134,6 +163,7 @@ async function resetEngine() { await fetch('/api/reset', {method:'POST'}); fetch
 
 document.getElementById('btn-toggle-partition').addEventListener('click', togglePartition);
 document.getElementById('btn-reset').addEventListener('click', resetEngine);
+
 fetchState();
 
 
