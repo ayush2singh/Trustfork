@@ -26,12 +26,8 @@ graph TD
         Causal -->|Divergence Detected| SagaOrch["Saga Orchestrator<br/>(saga_orchestrator.py)"]
         SagaOrch -->|Idempotent Recovery| SQLite["SQLite Saga Store<br/>(saga_store.py) [ADR 005]"]
     end
-
-    subgraph Delivery["Release Automation (ADR 006: CD)"]
-        Tag["Git Tag (v*)"] --> GHA["GitHub Actions CD"]
-        GHA --> GHCR["Docker Image (ghcr.io) [ADR 006]"]
-    end
 ```
+
 
 ---
 
@@ -104,17 +100,3 @@ graph TD
   * ✅ **Advantage**: Matches physical reality; idempotent execution prevents double-compensation; non-blocking recovery.
   * ⚠️ **Trade-off**: Requires explicit compensation logic for every business action; eventual consistency window exists until compensation completes.
 
----
-
-## ADR 006: Semantic Version Tag-Gated CD Delivery (`v*`) over Branch-Push Triggers
-
-
-* **Status**: Accepted
-* **Context**: Continuous Deployment must package and publish production container images to GitHub Container Registry (`ghcr.io`) without polluting registries with unstable development commits.
-* **Decision**: Restrict the CD pipeline (`cd.yml`) to trigger strictly on Git version tags (`v*`), while CI (`ci.yml`) runs on all commits and PRs to `main`.
-* **Alternatives Considered**:
-  * *Auto-deploy on every push to `main`*: Leads to image churn, potential deployment of incomplete features, and tag pollution in container registries.
-  * *Manual UI Dispatch*: Lacks automated Git commit-to-release traceability.
-* **Trade-offs**:
-  * ✅ **Advantage**: Strict SemVer compliance; production releases are deliberate and immutable; clear audit trail.
-  * ⚠️ **Trade-off**: Requires developers to create and push a Git tag (`git tag vX.Y.Z`) to trigger deployment.
