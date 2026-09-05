@@ -19,6 +19,66 @@ TrustFork operates under an **AP (Available / Partition-Tolerant)** model under 
 └──────────────────────────┴─────────────────────────────────────────────┘
 ```
 
+### Architectural Defense Pipeline & Edge Case Interception Flow
+
+The following diagram illustrates how an incoming receipt flows through the 5 defense gates, detailing the precise failure modes intercepted at each architectural checkpoint:
+
+```
+========================================================================================================
+                     TRUSTFORK ARCHITECTURAL DEFENSE PIPELINE & EDGE CASE INTERCEPTION
+========================================================================================================
+
+    [Incoming Signed Receipt from Edge Branch B: (receipt_id, payload, policy_hash, signature)]
+                                        │
+                                        ▼
+ ┌─────────────────────────────────────────────────────────────────────────────────────────────────────┐
+ │ GATE 0: Ingestion & Schema Sanitization (server.py + Pydantic)                                      │
+ ├─────────────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ • EC-12: Malformed/Negative Loan Amounts         ──► REJECTED: HTTP 422 (Schema validation abort)   │
+ └──────────────────────────────────────┬──────────────────────────────────────────────────────────────┘
+                                        │ (Valid JSON Schema & Types)
+                                        ▼
+ ┌─────────────────────────────────────────────────────────────────────────────────────────────────────┐
+ │ GATE 1: Cryptographic Integrity & Non-Repudiation (receipt.py: RFC 8785 + Ed25519)                  │
+ ├─────────────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ • EC-01: In-Flight Payload Tampering (MITM)      ──► REJECTED: InvalidSignature (Hash mismatch)     │
+ │ • EC-02: Corrupted Public Keys & Signature Junk  ──► REJECTED: Cryptographic Deserialization Abort  │
+ │ • EC-03: Cross-Platform Key Ordering Discrepancy ──► NORMALIZED: RFC 8785 Canonical JCS (UTF-16)    │
+ └──────────────────────────────────────┬──────────────────────────────────────────────────────────────┘
+                                        │ (Byte-for-byte Authentic Signature)
+                                        ▼
+ ┌─────────────────────────────────────────────────────────────────────────────────────────────────────┐
+ │ GATE 2: Historical Governance & Merkle Ancestry (merkle_crdt.py: Content-Addressed DAG)             │
+ ├─────────────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ • EC-07: Byzantine Rogue Policy Hash (deadbeef..)──► REJECTED: ILLEGITIMATE_POLICY_ANCESTRY         │
+ │ • EC-08: In-Policy Offline Approval ($8k <= $10k) ──► PASSED: COMMITTED (Direct commit, no saga)    │
+ └──────────────────────────────────────┬──────────────────────────────────────────────────────────────┘
+                                        │ (Defensible Lineage Rooted in Genesis)
+                                        ▼
+ ┌─────────────────────────────────────────────────────────────────────────────────────────────────────┐
+ │ GATE 3: Causal Concurrency Analysis (vector_clock.py: Lamport Vector Clocks)                         │
+ ├─────────────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ • EC-04: Split-Brain Concurrency (V_branch < V_hq)──► DETECTED: HAPPENS_BEFORE / CONCURRENT Fork    │
+ │ • EC-06: Link Flapping & Asymmetric Partitions    ──► RESOLVED: Pairwise lattice clock merge        │
+ └──────────────────────────────────────┬──────────────────────────────────────────────────────────────┘
+                                        │ (Divergence Proven Mathematically)
+                                        ▼
+ ┌─────────────────────────────────────────────────────────────────────────────────────────────────────┐
+ │ GATE 4: Fintech Ledger Durability & Idempotent Sagas (saga_store.py + saga_orchestrator.py)         │
+ ├─────────────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ • EC-05: Network Replay Attack (Duplicate RCPT)  ──► DE-DUPLICATED: Primary Key Idempotency Key     │
+ │ • EC-09: Mid-Flight Server Crash (Zombie Sagas)  ──► RESUMED: SQLite WAL + get_pending() Recovery   │
+ │ • EC-10: Accounting Sign & Balance Ambiguity     ──► FORMALIZED: Net balance debit (-$10,000)       │
+ └──────────────────────────────────────┬──────────────────────────────────────────────────────────────┘
+                                        │ (Ledger Compensated & Persisted)
+                                        ▼
+ ┌─────────────────────────────────────────────────────────────────────────────────────────────────────┐
+ │ OBSERVABILITY: Forensic Audit Copilot (copilot.py: Deterministic Semantic NLG)                      │
+ ├─────────────────────────────────────────────────────────────────────────────────────────────────────┤
+ │ • EC-11: Cloud LLM Outages & Hallucinations      ──► ELIMINATED: Zero-LLM Deterministic Text Verdict│
+ └─────────────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
 ### Edge Cases Summary Matrix
 
 | ID | Domain | Failure Scenario | Architectural Defense | Enforcing Module |
