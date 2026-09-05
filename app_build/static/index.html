@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TrustFork | Partition-Tolerant Distributed Authorization</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+    <header class="header">
+      <div class="brand">
+        <div class="brand-badge">TF</div>
+        <div>
+          <h1>TrustFork Engine</h1>
+          <p class="subtitle">Distributed Authorization & Partition-Tolerant Policy Enforcement</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="btn-toggle-partition" class="btn btn-warning">⚡ Sever Network Link</button>
+        <button id="btn-reset" class="btn btn-ghost">Reset Engine</button>
+      </div>
+    </header>
+
+    <!-- Visual Network Topology -->
+    <section class="topology-section" id="topology-container"></section>
+
+    <!-- Main Grid: Controls & Inspectors -->
+    <main class="dashboard-grid">
+      <div class="col left-col">
+        <div class="card" id="card-authority"></div>
+        <div class="card" id="card-branch"></div>
+      </div>
+      <div class="col right-col">
+        <div class="card" id="card-merkle-dag"></div>
+        <div class="card" id="card-reconciliation"></div>
+      </div>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
