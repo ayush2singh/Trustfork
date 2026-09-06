@@ -21,8 +21,9 @@
         <div class="brand-icon">TF</div>
         <div class="brand-info">
           <h1>TrustFork Engine <span class="brand-version">v1.0.0-PROD</span></h1>
-          <p class="brand-desc">Distributed Authorization, Merkle-CRDT Governance & Offline Split-Brain Sagas</p>
+          <p class="brand-desc">Distributed Authorization, Bounded Leases & Zero-Clawback Post-Partition Reconciliation</p>
         </div>
+
       </div>
 
       <div class="top-telemetry">
@@ -87,7 +88,7 @@
         <!-- Reconciliation & Forward Recovery Saga Monitor -->
         <div class="panel-card" id="card-reconciliation">
           <div class="panel-header">
-            <div class="panel-title">⚖️ Reconciliation & Forward Recovery</div>
+            <div class="panel-title">⚖️ Deterministic Reconciliation & Lease Verification</div>
             <button class="btn btn-primary btn-sm" id="btn-trigger-reconcile" onclick="reconcile()">Trigger Reconciliation</button>
           </div>
           
@@ -122,32 +123,33 @@
             <div class="pipeline-step-item" id="pipe-step-4">
               <div class="step-indicator-ring">4</div>
               <div class="step-content">
-                <div class="step-title-text">Forward Recovery Saga Dispatch</div>
-                <div class="step-desc-text">Dispatches automated idempotent SQLite compensation (e.g. clawback).</div>
+                <div class="step-title-text">Bounded Lease Verification (SURVIVES)</div>
+                <div class="step-desc-text">Validates pre-authorized lease bounds, epoch, and quota. Zero clawbacks!</div>
               </div>
               <span class="step-time-chip" id="pipe-time-4">Idle</span>
             </div>
           </div>
 
           <div style="margin-top:0.5rem">
-            <div style="font-size:0.8rem;font-weight:600;color:var(--text-secondary);margin-bottom:0.5rem">DURABLE SAGA LEDGER (SQLite)</div>
+            <div style="font-size:0.8rem;font-weight:600;color:var(--text-secondary);margin-bottom:0.5rem">DURABLE RECONCILIATION & LEASE AUDIT</div>
             <div class="saga-table-wrap">
               <table class="saga-table-v2">
                 <thead>
                   <tr>
-                    <th>Saga ID</th>
-                    <th>Action</th>
-                    <th>Excess</th>
-                    <th>Idempotency Key</th>
-                    <th>State</th>
+                    <th>Receipt ID</th>
+                    <th>Decision</th>
+                    <th>Amount</th>
+                    <th>Epoch / Bounds</th>
+                    <th>Status</th>
                     <th>Audit</th>
                   </tr>
                 </thead>
                 <tbody id="saga-table-body">
-                  <!-- Sagas rendered dynamically -->
+                  <!-- Rendered dynamically in app.js -->
                 </tbody>
               </table>
             </div>
+
           </div>
         </div>
 
@@ -178,7 +180,7 @@
             <button class="term-tab active" id="tab-btn-verdict" onclick="switchCopilotTab('verdict')">💬 Executive Verdict</button>
             <button class="term-tab" id="tab-btn-causal" onclick="switchCopilotTab('causal')">⏱️ Causal Lattice</button>
             <button class="term-tab" id="tab-btn-crypto" onclick="switchCopilotTab('crypto')">🔏 Cryptographic Proof</button>
-            <button class="term-tab" id="tab-btn-saga" onclick="switchCopilotTab('saga')">🛡️ Saga Compensation</button>
+            <button class="term-tab" id="tab-btn-saga" onclick="switchCopilotTab('saga')">🛡️ Bounded Lease Audit</button>
           </div>
 
           <div class="terminal-viewport" id="copilot-output">

@@ -1,0 +1,18 @@
+services:
+  trustfork:
+    build:
+      context: ../..
+      dockerfile: app_build/infra/Dockerfile
+    container_name: trustfork-engine
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - HOST=0.0.0.0
+      - SAGA_DB_PATH=:memory:
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/state')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped

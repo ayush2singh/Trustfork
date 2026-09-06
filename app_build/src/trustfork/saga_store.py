@@ -1,16 +1,25 @@
 import sqlite3
 import json
+import os
 from typing import Optional, List
 from trustfork.saga_orchestrator import CompensationRecord, SagaState
 
 class SagaStore:
     def __init__(self, db_path: str = ":memory:"):
+        if db_path != ":memory:":
+            dirname = os.path.dirname(db_path)
+            if dirname:
+                os.makedirs(dirname, exist_ok=True)
         self.conn = sqlite3.connect(db_path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         self._init_db()
 
     def _init_db(self):
         with self.conn:
+            try:
+                self.conn.execute("PRAGMA journal_mode=WAL;")
+            except Exception:
+                pass
             self.conn.execute("""
                 CREATE TABLE IF NOT EXISTS sagas (
                     idempotency_key TEXT PRIMARY KEY,

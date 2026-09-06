@@ -121,3 +121,18 @@ graph TD
   * ✅ **Advantage**: 100% mathematically faithful to ground truth; zero hallucinations; sub-millisecond execution; completely offline-safe with zero API keys or external dependencies.
   * ⚠️ **Trade-off**: Template-bound semantic phrasing; lacks the open-domain conversational flexibility of multi-billion parameter neural networks.
 
+---
+
+## ADR 007: Pre-Authorized Bounded Authorization Leases over Retroactive Clawbacks
+
+* **Status**: Accepted
+* **Context**: Real-world evaluators and banking compliance officers highlighted that unilateral retroactive "clawbacks" fail when disbursed funds are withdrawn or depleted, and unilateral account debits breach consumer protection regulations (e.g. CFPB, TILA).
+* **Decision**: Introduce **Pre-Authorized Bounded Authorization Leases** (`lease.py`, `reconciler.py`). Before a partition occurs, Central Authority issues an Ed25519 cryptographically signed lease defining the authorized principal, action, resource, policy hash, discrete validity epoch, and usage quota. During a partition, edge domains evaluate requests strictly within active lease bounds and fail closed (`DENY`) for any out-of-bounds attempt. Reconciler deterministically verifies the lease cryptographic proof upon reconnection, marking compliant executions as **`SURVIVES`** with permanent finality and **zero clawback or compensation required**.
+* **Alternatives Considered**:
+  * *Unbounded Optimistic Approval with Retroactive Clawback*: Fails when funds are depleted, creates unauthorized overdrafts, and triggers consumer regulatory violations.
+  * *Global 2PC / Synchronous Locking*: Destroys availability during partitions.
+* **Trade-offs**:
+  * ✅ **Advantage**: Completely eliminates retroactive clawbacks and rollbacks; guarantees that every offline action remains legally and technically defensible; local evaluation fails closed safely.
+  * ⚠️ **Trade-off**: Requires periodic lease renewal from Central Authority before validity epochs expire; offline operations are strictly bounded by pre-allocated usage limits.
+
+

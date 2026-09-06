@@ -20,62 +20,66 @@ In naive AP architectures (high availability), partitioned nodes operate blindly
 * ❌ Edge branches approve loans under outdated policies.
 * ❌ Reconnection creates unresolvable double-spending and ledger corruption.
 
-**TrustFork solves this through an AP-with-Verifiable-Convergence model**:
-1. Edge nodes evaluate immutable, content-addressed policy graphs.
-2. Every offline decision produces an RFC 8785 Ed25519 cryptographic receipt.
+**TrustFork solves this through a Pre-Authorized Bounded Lease model**:
+1. Edge domains evaluate requests strictly under pre-authorized, Ed25519-signed authorization leases.
+2. Every offline decision produces an RFC 8785 Ed25519 cryptographic receipt bound to the lease proof.
 3. Logical vector clocks capture causal ordering without relying on NTP clocks.
-4. When the network heals, an automated Saga reconciler applies forward-recovery compensation.
+4. Requests outside lease limits or validity epochs fail closed (`DENY`) immediately.
+5. When the network heals, deterministic reconciliation validates the lease proof and marks compliant decisions as **`SURVIVES`** — guaranteeing permanent finality with **zero clawback, rollback, or compensation required**.
 
-👉 **For the full trade-off analysis of all 6 core design choices, see [architecturalDecision.md](architecturalDecision.md).**
+👉 **For the full trade-off analysis of all 7 core design choices, see [architecturalDecision.md](architecturalDecision.md).**
 
 ---
-
-
-
-
 
 ## Architecture & Workflow
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant Central as Central Authority (HQ)
-    participant Edge as Edge Branch (Branch B)
+    participant Central as Central Authority (Domain A)
+    participant Edge as Edge Branch (Domain B)
     participant Customer as Customer / POS
     participant Reconciler as TrustFork Reconciler
-    participant Saga as Saga Store (SQLite)
 
-    Note over Central,Edge: 1. Normal Operation (Policy V1: $20,000 Limit)
-    Note over Central,Edge: 2. Network Partition Occurs (Branch Disconnected)
-    Central->>Central: Policy Update V2 ($10,000 Limit)
-    Customer->>Edge: Request Loan ($20,000)
-    Edge->>Edge: Evaluates Cached Merkle Policy V1 (ALLOW)
-    Edge->>Edge: Signs Ed25519 Receipt (RFC 8785 Canonical)
-    Edge->>Customer: Disburses $20,000 Cash
-    Note over Central,Edge: 3. Network Heals & Partition Reconnects
-    Edge->>Reconciler: Submits Signed Authorization Receipt
-    Reconciler->>Reconciler: 1. Verify Ed25519 Signature
-    Reconciler->>Reconciler: 2. Check Policy Defensibility in Merkle DAG
-    Reconciler->>Reconciler: 3. Causal Vector Clock Check (Divergence Detected!)
-    Reconciler->>Saga: Dispatch Forward-Recovery Compensation ($10,000 Excess)
-    Saga->>Saga: Idempotent SQLite Execution (COMPENSATION_COMPLETE)
+    Note over Central,Edge: 1. Pre-Partition: Issue Bounded Lease ($15,000 Limit, Epoch <= 10)
+    Central->>Edge: Cryptographically Signed AuthorizationLease (Ed25519)
+    Note over Central,Edge: 2. Network Partition Occurs (Domain B Disconnected)
+    Central->>Central: Policy Update V2 ($10,000 Limit for NEW leases)
+    Customer->>Edge: Request Loan ($12,000 @ Epoch 3)
+    Edge->>Edge: Evaluates within Signed Lease Bounds (ALLOW, Remaining: $3,000)
+    Edge->>Edge: Signs Ed25519 Receipt with Embedded Lease Proof
+    Edge->>Customer: Disburses $12,000 Cash
+    Customer->>Edge: Request Out-of-Bounds Loan ($8,000 @ Epoch 4)
+    Edge->>Customer: FAIL-CLOSED DENY (Exceeds Remaining $3,000 Quota)
+    Note over Central,Edge: 3. Network Heals & Deterministic Reconciliation
+    Edge->>Reconciler: Submits Leased Authorization Receipt
+    Reconciler->>Reconciler: 1. Verify Domain & Authority Ed25519 Signatures
+    Reconciler->>Reconciler: 2. Check Lease Policy Hash in Merkle DAG
+    Reconciler->>Reconciler: 3. Verify Execution Epoch <= Lease Validity Epoch
+    Reconciler->>Reconciler: 4. Verify Request within Action/Resource Scope
+    Reconciler->>Reconciler: 5. Verify Aggregate Usage Limit Not Exceeded
+    Reconciler->>Edge: Deterministic Verdict: SURVIVES (Zero Clawback)
 ```
 
 ---
 
 ## Core Technical Pillars
 
-### 1. Distributed Systems: Merkle CRDT & Vector Clocks
+### 1. Bounded Authorization Leases (`lease.py`)
+* **Pre-Authorized Bounded Leases**: Central Authority issues cryptographically signed leases specifying principal, action, resource, policy hash, discrete validity epoch, and usage limits before disconnection.
+* **Fail-Closed Local Enforcement**: Edge nodes evaluate operations strictly against active leases. Any out-of-scope or expired request is immediately rejected (`DENY`) at the edge, guaranteeing that an unauthorized irreversible effect can never occur.
+
+### 2. Distributed Systems: Merkle CRDT & Vector Clocks
 * **Merkle Policy DAG (`merkle_crdt.py`)**: Authorization policies are modeled as content-addressed Directed Acyclic Graph (DAG) nodes. Each node hashes its rules, limits, and `parent_hash` with SHA-256. Modifications fork cleanly without silent drift.
 * **Vector Clocks (`vector_clock.py`)**: Resolves Lamport logical causality. Categorizes event pairs into `HAPPENS_BEFORE`, `HAPPENS_AFTER`, `EQUAL`, or `CONCURRENT` without depending on unsynchronized hardware clocks.
 
-### 2. Cryptographic Integrity: RFC 8785 Canonical Ed25519
+### 3. Cryptographic Integrity: RFC 8785 Canonical Ed25519
 * **Canonical JSON (`receipt.py`)**: Implements RFC 8785 canonical serialization (lexicographically sorted keys, no extraneous whitespace, normalized floats/integers, UTF-8).
 * **Ed25519 Digital Signatures**: Every offline decision produces an unforgeable cryptographic receipt. Edge nodes cannot deny or rewrite the policy version they evaluated.
 
-### 3. Fintech Resilience: Sagas & Forward Recovery
-* **Forward Recovery (`reconciler.py`)**: When cash or physical goods are handed out offline, database rollbacks are impossible. TrustFork shifts from ACID rollback to **Saga forward-recovery**.
-* **Idempotent SQLite Persistence (`saga_store.py`)**: Compensations are keyed deterministically (`compensate_{receipt_id}_{action}`) with atomic SQLite state transitions (`INITIATED` -> `EXECUTING` -> `COMPLETED`).
+### 4. Zero-Clawback Deterministic Reconciliation (`reconciler.py`)
+* **Deterministic Verification (`reconciler.py`)**: Validates the 5-point verification invariant upon reconnection. Confirmed transactions are marked **`SURVIVES`**, providing permanent finality without customer clawbacks or balance-sheet rollbacks.
+
 
 ---
 
@@ -126,4 +130,5 @@ The test suite covers all edge cases: clock concurrency, signature tampering, in
 uv run --directory app_build pytest
 ```
 
-All **16 automated tests** pass with 0 warnings.
+All **22 automated tests** pass with 0 warnings.
+

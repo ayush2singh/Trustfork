@@ -10,48 +10,56 @@ let lastCopilotText = "";
 
 const SCENARIO_STEPS = [
   {
-    title: "1. Cluster Sync",
-    desc: "Both nodes synchronized under Genesis Policy V1 ($20k limit).",
+    title: "1. Bounded Lease",
+    desc: "Central Authority issued a cryptographically signed Bounded Lease to Domain B ($15k max, Epoch <= 10).",
     actionHint: "Click '⚡ Sever Fiber Link' to simulate a split-brain network partition.",
     buttonLabel: "Sever Fiber Link ⚡",
     action: () => togglePartition()
   },
   {
     title: "2. Sever Link",
-    desc: "Fiber is severed. Branch B is operating in offline-isolated mode.",
-    actionHint: "Update Authority Policy to $10,000 while Branch is disconnected.",
+    desc: "Fiber is severed. Domain B operates under fail-closed bounded authorization.",
+    actionHint: "Update Authority Policy to $10,000 while Domain B is disconnected.",
     buttonLabel: "Update Authority Policy ($10k) 🏛️",
     action: () => updatePolicy(10000)
   },
   {
-    title: "3. HQ Policy V2",
-    desc: "Authority tightened risk limit to $10k. Branch B remains unaware.",
-    actionHint: "Issue an offline loan of $20,000 at Edge Branch B under cached V1.",
-    buttonLabel: "Authorize $20,000 Loan 🏢",
-    action: () => requestLoan(20000)
+    title: "3. Policy V2 (New)",
+    desc: "Authority updated policy to $10k. Applies to NEW leases only; pre-existing bounded lease remains valid.",
+    actionHint: "Authorize an offline loan of $12,000 at Domain B within its $15k lease bounds.",
+    buttonLabel: "Authorize $12,000 Loan (In Lease) 🏢",
+    action: () => requestLoan(12000)
   },
   {
-    title: "4. Offline Sign",
-    desc: "Branch B authorized $20,000 and generated an RFC 8785 Ed25519 receipt.",
-    actionHint: "Reconnect the fiber optic link to allow reconciliation.",
+    title: "4. Fail-Closed Test",
+    desc: "Domain B tests fail-closed bounds: attempting $10,000 loan when only $3,000 quota remains.",
+    actionHint: "Attempt $10,000 loan: will be strictly DENIED at the edge (no money disbursed).",
+    buttonLabel: "Test Out-of-Bounds Request ($10k) 🚫",
+    action: () => requestLoan(10000)
+  },
+  {
+    title: "5. Reconnect",
+    desc: "Link restored. Offline leased receipts are pending deterministic reconciliation.",
+    actionHint: "Reconnect the fiber optic link to trigger reconciliation.",
     buttonLabel: "Reconnect Fiber Link 🔗",
     action: () => togglePartition()
   },
   {
-    title: "5. Reconnect",
-    desc: "Link restored. Divergent receipts are pending reconciliation.",
-    actionHint: "Trigger the Reconciler to detect CRDT divergence and dispatch Saga recovery.",
-    buttonLabel: "Trigger Reconciliation ⚖️",
+    title: "6. Zero-Clawback",
+    desc: "Reconciler deterministically verified: Operation SURVIVES with permanent finality. Zero clawbacks!",
+    actionHint: "Trigger Reconciler to verify lease signature, epoch, and bounds.",
+    buttonLabel: "Trigger Reconciliation (SURVIVES) ⚖️",
     action: () => reconcile()
   },
   {
-    title: "6. Saga & Copilot",
-    desc: "Automated clawback saga executed. Inspect executive forensic verdict.",
+    title: "7. Convergence",
+    desc: "Both domains converged to Policy V2 for all new leases. Zero compensation required.",
     actionHint: "Simulation complete! Reset engine or explore different loan amounts.",
     buttonLabel: "Reset Simulation ↺",
     action: () => resetEngine()
   }
 ];
+
 
 // ==========================================================================
 // Cyber Audio Engine (Web Audio API Synthesizer - Zero Dependencies)
@@ -667,35 +675,63 @@ function renderReconciliation() {
     }
   }
 
-  if (!sagas.length) {
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="6" style="text-align:center;color:var(--text-muted);padding:1.2rem;font-style:italic">
-          No sagas recorded. Dispatches forward recovery automatically upon divergence.
-        </td>
-      </tr>
-    `;
+  const history = state.history || [];
+  if (history.length > 0) {
+    tbody.innerHTML = history.map(h => {
+      const isSurvives = h.status === 'SURVIVES';
+      const badgeClass = isSurvives ? 'badge-emerald' : (h.status === 'COMMITTED' ? 'badge-indigo' : 'badge-rose');
+      const amount = h.details?.amount || 0;
+      const epoch = h.details?.execution_epoch !== undefined ? `Epoch ${h.details.execution_epoch}` : 'N/A';
+      return `
+        <tr>
+          <td><code>${h.receipt_id}</code></td>
+          <td><strong>${isSurvives ? 'Pre-Authorized Loan' : 'Direct Loan'}</strong></td>
+          <td><span style="color:var(--emerald-core);font-weight:700">+$${amount.toLocaleString()}</span></td>
+          <td><span style="font-size:0.75rem;color:var(--text-secondary)">${epoch}</span></td>
+          <td><span class="badge ${badgeClass}">${h.status} ${isSurvives ? '🛡️ (Zero Clawback)' : ''}</span></td>
+          <td>
+            <button class="btn btn-ghost btn-sm" style="padding:2px 8px;font-size:0.72rem" onclick="runCopilot('${h.receipt_id}')">
+              📋 Audit
+            </button>
+          </td>
+        </tr>
+      `;
+    }).join('');
     return;
   }
 
-  tbody.innerHTML = sagas.map(s => {
-    const excess = s.details?.excess || 0;
-    return `
-      <tr>
-        <td><code>${s.saga_id}</code></td>
-        <td><strong>${s.action}</strong></td>
-        <td><span style="color:var(--rose-core);font-weight:700">-$${excess.toLocaleString()}</span></td>
-        <td><code style="font-size:0.75rem">${s.idempotency_key}</code></td>
-        <td><span class="badge badge-emerald">${s.state}</span></td>
-        <td>
-          <button class="btn btn-ghost btn-sm" style="padding:2px 8px;font-size:0.72rem" onclick="runCopilot('${s.receipt_id}')">
-            📋 Audit
-          </button>
-        </td>
-      </tr>
-    `;
-  }).join('');
+  if (sagas.length > 0) {
+    tbody.innerHTML = sagas.map(s => {
+      const excess = s.details?.excess || 0;
+      return `
+        <tr>
+          <td><code>${s.saga_id}</code></td>
+          <td><strong>${s.action}</strong></td>
+          <td><span style="color:var(--rose-core);font-weight:700">-$${excess.toLocaleString()}</span></td>
+          <td><code style="font-size:0.75rem">${s.idempotency_key}</code></td>
+          <td><span class="badge badge-emerald">${s.state}</span></td>
+          <td>
+            <button class="btn btn-ghost btn-sm" style="padding:2px 8px;font-size:0.72rem" onclick="runCopilot('${s.receipt_id}')">
+              📋 Audit
+            </button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+    return;
+  }
+
+  const lease = state.active_lease;
+  const leaseInfo = lease ? `Active Pre-Authorized Lease: ${lease.lease_id} (Limit: $${lease.usage_limit.toLocaleString()} | Remaining: $${lease.remaining_limit.toLocaleString()})` : 'No active bounded leases.';
+  tbody.innerHTML = `
+    <tr>
+      <td colspan="6" style="text-align:center;color:var(--text-muted);padding:1.2rem;font-style:italic">
+        ${leaseInfo} Deterministic reconciliation marks valid executions as <strong>SURVIVES</strong> with zero clawbacks.
+      </td>
+    </tr>
+  `;
 }
+
 
 // --------------------------------------------------------------------------
 // 6. Multi-Tab Forensic Audit Copilot Terminal

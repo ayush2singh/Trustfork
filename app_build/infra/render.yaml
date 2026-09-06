@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: trustfork-engine
+    env: docker
+    dockerContext: .
+    dockerfilePath: app_build/infra/Dockerfile
+    plan: free
+    region: oregon
+    healthCheckPath: /api/state
+    envVars:
+      - key: SAGA_DB_PATH
+        value: ":memory:"
