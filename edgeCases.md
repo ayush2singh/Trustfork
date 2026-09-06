@@ -69,15 +69,14 @@ Every transaction, receipt, and lease passes through these sequential checkpoint
 | **EC-07** | Byzantine Rogue Policy | Hacker branch invents a fake policy with a $10M limit. | Merkle DAG recursive traversal to Genesis fails (`ILLEGITIMATE_ANCESTRY`). |
 | **EC-08** | Compliant Offline Spend | Branch spent under old limit ($8k), which also complies with new limit ($10k). | Reconciler recognizes zero excess; marks `COMMITTED` without saga. |
 | **EC-09** | AI Hallucination in Audits | Cloud LLM invents fake compliance reasons. | 100% Deterministic Semantic NLG in `copilot.py` (Zero AI hallucination). |
-| **EC-10** | Negative / Malformed Money | User submits a loan for `-$5,000` or `"free_money"`. | Pydantic model validation aborts with HTTP 422 immediately. |
-| **EC-11** | Lease Parameter Inflation | Dishonest branch edits lease limit from $15k to $50k. | Altered parameter invalidates Central Authority's Ed25519 signature. |
-| **EC-12** | Expired Lease / Time Warp | Branch attempts to use a lease after the era has ended. | Logical epoch check: `execution_epoch <= valid_until_epoch`. |
-| **EC-13** | Scope Hijacking | Branch uses a 'Home Loan' lease to buy volatile stocks. | Gate 4 checks `action` and `resource` match the lease scope. |
-| **EC-14** | Local Quota Overrun | Borrower asks for $16,000 against a $15,000 lease. | Edge branch fails closed locally before dispensing any physical cash. |
+| **EC-10** | Lease Parameter Inflation | Dishonest branch edits lease limit from $15k to $50k. | Altered parameter invalidates Central Authority's Ed25519 signature. |
+| **EC-11** | Expired Lease / Time Warp | Branch attempts to use a lease after the era has ended. | Logical epoch check: `execution_epoch <= valid_until_epoch`. |
+| **EC-12** | Scope Hijacking | Branch uses a 'Home Loan' lease to buy volatile stocks. | Gate 4 checks `action` and `resource` match the lease scope. |
+| **EC-13** | Local Quota Overrun | Borrower asks for $16,000 against a $15,000 lease. | Edge branch fails closed locally before dispensing any physical cash. |
 
 ---
 
-## 3. Deep-Dive: The 14 Edge Cases Explained
+## 3. Deep-Dive: The 13 Edge Cases Explained
 
 ### Category 1: Cryptography & Security
 
@@ -139,7 +138,7 @@ Every transaction, receipt, and lease passes through these sequential checkpoint
 
 ---
 
-### Category 4: AI Copilot & API Ingestion
+### Category 4: AI Copilot & Observability
 
 #### EC-09: Cloud LLM Outages & Hallucination (The Unreliable AI)
 - **Plain English:** Using ChatGPT or Gemini to explain banking errors. What happens if the AI makes up a fake law, hallucinates a transaction, or the internet to OpenAI goes down?
@@ -147,35 +146,29 @@ Every transaction, receipt, and lease passes through these sequential checkpoint
 - **How TrustFork Handles It:**
   TrustFork’s Audit Copilot (`copilot.py`) uses **100% Deterministic Rule-Based Natural Language Generation**. It maps mathematical graph relations directly to certified English sentences. It runs in `<1 millisecond`, works completely offline, requires zero API keys, and has zero hallucination risk.
 
-#### EC-10: Malformed or Negative Dollar Amounts (The Negative Loan)
-- **Plain English:** An attacker submits a loan request for `-$5,000` hoping the bank's accounting system accidentally credits their account instead of debiting it.
-- **The Danger:** Inverse accounting exploitation.
-- **How TrustFork Handles It:**
-  FastAPI and Pydantic schemas enforce positive integer boundaries (`gt=0`). Malformed requests are rejected at Gate 0 with an immediate `HTTP 422 Unprocessable Entity`.
-
 ---
 
 ### Category 5: Bounded Leases & The 5-Point Invariant
 
-#### EC-11: Lease Parameter Inflation (The Forged Allowance)
+#### EC-10: Lease Parameter Inflation (The Forged Allowance)
 - **Plain English:** A corrupt branch manager takes a signed lease for $15,000 and edits the file on disk to say $50,000.
 - **The Danger:** The branch attempts to disburse $50,000 of the bank's funds.
 - **How TrustFork Handles It:**
   The lease limit is part of the payload signed by Central's Ed25519 private key. Modifying `$15,000` to `$50,000` changes the canonical byte hash. At Gate 1, signature verification fails with `REJECTED_SIGNATURE`.
 
-#### EC-12: Expired Lease / Time Warp (The Stale Voucher)
+#### EC-11: Expired Lease / Time Warp (The Stale Voucher)
 - **Plain English:** A branch tries to authorize a loan using a lease from last month whose validity has expired.
 - **The Danger:** Authorizing transactions under outdated risk allowances.
 - **How TrustFork Handles It:**
   Gate 3 checks the discrete **Logical Epoch**: `execution_epoch <= valid_until_epoch`. If the lease was only valid until Epoch 5, and the cluster is on Epoch 6, the transaction is rejected as `EXPIRED_LEASE`. Because epochs are integer counters, local PC clock tampering cannot bypass this.
 
-#### EC-13: Scope Hijacking / Privilege Escalation (The Misused Budget)
+#### EC-12: Scope Hijacking / Privilege Escalation (The Misused Budget)
 - **Plain English:** A branch has a lease authorized for `LOAN_DISBURSEMENT` on `RETAIL_ACCOUNTS`, but attempts to use it to authorize a multi-million-dollar `DERIVATIVES_TRADE`.
 - **The Danger:** Unauthorized high-risk operations disguised under low-risk leases.
 - **How TrustFork Handles It:**
   Gate 4 verifies capability matching: the transaction's requested `action` and `resource` must match the lease's pre-approved scope. Mismatches are rejected with `SCOPE_MISMATCH`.
 
-#### EC-14: Local Quota Overrun (The Empty Card)
+#### EC-13: Local Quota Overrun (The Empty Card)
 - **Plain English:** A branch has a $15,000 lease. It has already disbursed $12,000. A customer walks in asking for $5,000.
 - **The Danger:** Disbursing $5,000 would exceed the $15,000 cap by $2,000.
 - **How TrustFork Handles It:**
