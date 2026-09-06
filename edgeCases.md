@@ -78,24 +78,24 @@ Every transaction, receipt, and lease passes through these sequential checkpoint
 
 ## 3. Master Edge Cases Table (Plain English & Technical Defense)
 
-| ID | Failure Scenario | Plain English Meaning | How TrustFork Solves It | Evaluator Defense Pitch |
-| :--- | :--- | :--- | :--- | :--- |
-| **EC-01** | In-Flight Tampering | A hacker changes $20,000 to $50,000 in transit. | RFC 8785 canonical hash mismatch; Ed25519 throws `InvalidSignature`. | *"Any altered character breaks the digital signature at Gate 1 before any money moves."* |
-| **EC-02** | Corrupted Public Keys | A corrupt database row passes bad key bytes. | 32-byte Ed25519 deserialization assert; hard error abort. | *"Invalid curve points or corrupted keys are rejected at deserialization."* |
-| **EC-03** | JSON Formatting Discrepancies | Python and Go order JSON keys differently, breaking hashes. | RFC 8785 (JCS) sorts keys lexicographically and strips whitespace. | *"RFC 8785 ensures identical byte representations across all programming languages."* |
-| **EC-04** | Split-Brain Offline Spend | Branch approves loan under old policy while offline. | Vector clocks detect divergence; 5-point invariant proves safety; Sagas handle deltas. | *"If within bounded lease, it SURVIVES; if un-leased, the saga adjusts the delta without crash."* |
-| **EC-05** | Double-Click / Replay Attack | User clicks 'Submit' 5 times or network re-sends packet. | SQLite `idempotency_key` primary key constraint ignores duplicates. | *"Our idempotency key guarantees that repeating a transaction 10 times executes it only once."* |
-| **EC-06** | Flapping Network Cable | Wi-Fi disconnects and reconnects every 2 seconds. | Atomic batch processing with durable SQLite WAL queue. | *"Transactions queue safely on disk; reconciler processes atomic batches without half-states."* |
-| **EC-07** | Byzantine Rogue Policy | Hacker branch invents a fake policy with a $10M limit. | Merkle DAG recursive traversal to Genesis fails (`ILLEGITIMATE_ANCESTRY`). | *"The policy hash must trace back cryptographically to the cluster's genesis root."* |
-| **EC-08** | Compliant Offline Spend | Branch spent under old limit ($8k), which also complies with new limit ($10k). | Reconciler recognizes zero excess; marks `COMMITTED` without saga. | *"No divergence exists if the spend is legal under both old and new governance rules."* |
-| **EC-09** | Mid-Flight Power Cut | Server crashes while compensating an overdrawn account. | SQLite WAL mode + `get_pending()` recovery daemon on restart. | *"Write-Ahead Logging ensures zero lost tasks; pending sagas automatically resume on reboot."* |
-| **EC-10** | Accounting Sign Confusion | Auditor doesn't know if $10,000 is a debit or a credit. | Explicit net debit convention (`-$10,000`) with `CLAWBACK` badge. | *"Every compensating entry is formalized as a signed net balance reduction."* |
-| **EC-11** | AI Hallucination in Audits | Cloud LLM invents fake compliance reasons. | 100% Deterministic Semantic NLG in `copilot.py` (Zero AI hallucination). | *"Our audit copilot uses mathematical finite-state logic, not probabilistic LLMs."* |
-| **EC-12** | Negative / Malformed Money | User submits a loan for `-$5,000` or `"free_money"`. | Pydantic model validation aborts with HTTP 422 immediately. | *"Strict input schema validation eliminates malformed payloads at the perimeter."* |
-| **EC-13** | Lease Parameter Inflation | Dishonest branch edits lease limit from $15k to $50k. | Altered parameter invalidates Central Authority's Ed25519 signature. | *"The branch cannot forge Central's private key; tampered limits fail Gate 1 immediately."* |
-| **EC-14** | Expired Lease / Time Warp | Branch attempts to use a lease after the era has ended. | Logical epoch check: `execution_epoch <= valid_until_epoch`. | *"Logical epochs prevent stale lease re-use and are completely immune to clock drift."* |
-| **EC-15** | Scope Hijacking | Branch uses a 'Home Loan' lease to buy volatile stocks. | Gate 4 checks `action` and `resource` match the lease scope. | *"Leases are purpose-bound; a mortgage lease cannot authorize a trading disbursal."* |
-| **EC-16** | Local Quota Overrun | Borrower asks for $16,000 against a $15,000 lease. | Edge branch fails closed locally before dispensing any physical cash. | *"The edge node enforces the remaining quota locally; the vault never opens for over-limit amounts."* |
+| ID | Failure Scenario | Plain English Meaning | How TrustFork Solves It |
+| :--- | :--- | :--- | :--- |
+| **EC-01** | In-Flight Tampering | A hacker changes $20,000 to $50,000 in transit. | RFC 8785 canonical hash mismatch; Ed25519 throws `InvalidSignature`. |
+| **EC-02** | Corrupted Public Keys | A corrupt database row passes bad key bytes. | 32-byte Ed25519 deserialization assert; hard error abort. |
+| **EC-03** | JSON Formatting Discrepancies | Python and Go order JSON keys differently, breaking hashes. | RFC 8785 (JCS) sorts keys lexicographically and strips whitespace. |
+| **EC-04** | Split-Brain Offline Spend | Branch approves loan under old policy while offline. | Vector clocks detect divergence; 5-point invariant proves safety; Sagas handle deltas. |
+| **EC-05** | Double-Click / Replay Attack | User clicks 'Submit' 5 times or network re-sends packet. | SQLite `idempotency_key` primary key constraint ignores duplicates. |
+| **EC-06** | Flapping Network Cable | Wi-Fi disconnects and reconnects every 2 seconds. | Atomic batch processing with durable SQLite WAL queue. |
+| **EC-07** | Byzantine Rogue Policy | Hacker branch invents a fake policy with a $10M limit. | Merkle DAG recursive traversal to Genesis fails (`ILLEGITIMATE_ANCESTRY`). |
+| **EC-08** | Compliant Offline Spend | Branch spent under old limit ($8k), which also complies with new limit ($10k). | Reconciler recognizes zero excess; marks `COMMITTED` without saga. |
+| **EC-09** | Mid-Flight Power Cut | Server crashes while compensating an overdrawn account. | SQLite WAL mode + `get_pending()` recovery daemon on restart. |
+| **EC-10** | Accounting Sign Confusion | Auditor doesn't know if $10,000 is a debit or a credit. | Explicit net debit convention (`-$10,000`) with `CLAWBACK` badge. |
+| **EC-11** | AI Hallucination in Audits | Cloud LLM invents fake compliance reasons. | 100% Deterministic Semantic NLG in `copilot.py` (Zero AI hallucination). |
+| **EC-12** | Negative / Malformed Money | User submits a loan for `-$5,000` or `"free_money"`. | Pydantic model validation aborts with HTTP 422 immediately. |
+| **EC-13** | Lease Parameter Inflation | Dishonest branch edits lease limit from $15k to $50k. | Altered parameter invalidates Central Authority's Ed25519 signature. |
+| **EC-14** | Expired Lease / Time Warp | Branch attempts to use a lease after the era has ended. | Logical epoch check: `execution_epoch <= valid_until_epoch`. |
+| **EC-15** | Scope Hijacking | Branch uses a 'Home Loan' lease to buy volatile stocks. | Gate 4 checks `action` and `resource` match the lease scope. |
+| **EC-16** | Local Quota Overrun | Borrower asks for $16,000 against a $15,000 lease. | Edge branch fails closed locally before dispensing any physical cash. |
 
 ---
 
