@@ -10,29 +10,38 @@ The following diagram maps each architectural decision to its corresponding runt
 
 ```mermaid
 graph TD
-    subgraph Edge["Edge Branch Node (ADR 001: AP Model)"]
-        DAG_Edge["Merkle Policy DAG<br/>(PolicyNode) [ADR 002]"] -->|Evaluate Rules| Eval["Local Evaluation<br/>(ALLOW / DENY)"]
-        Eval -->|Attach Clock| VC_Edge["Vector Clock<br/>(vc_branch) [ADR 004]"]
-        VC_Edge --> Signer["RFC 8785 Canonicalizer<br/>+ Ed25519 Signer [ADR 003]"]
-        Signer -->|Issue Proof| Receipt["Signed Authorization Receipt<br/>(Ed25519)"]
+    subgraph Central_Pre["Central Authority (Pre-Partition)"]
+        DAG_Auth["Authority Merkle DAG<br/>(PolicyNode) [ADR 002]"] -->|Anchors Policy Hash| Issuer["LeaseAuthority [ADR 007]"]
+        Issuer -->|Signs with Ed25519 [ADR 003]| Lease["Pre-Authorized Bounded Lease<br/>(Epoch, Quota, Scope)"]
     end
 
-    Receipt -.->|Partition Severed / Healed| Recon["TrustFork Reconciler<br/>(reconciler.py)"]
+    Lease -->|Distributed Pre-Partition| Evaluator
 
-    subgraph Central["Central Authority & Reconciler (ADR 005: Sagas)"]
-        Recon -->|1. Verify Signature| Verify["Ed25519 VerifyKey [ADR 003]"]
-        Recon -->|2. Check Defensibility| DAG_Auth["Authority Merkle DAG [ADR 002]"]
-        Recon -->|3. Causal Comparison| Causal["VectorClock.compare() [ADR 004]"]
-        Causal -->|Divergence Detected| SagaOrch["Saga Orchestrator<br/>(saga_orchestrator.py)"]
-        SagaOrch -->|Idempotent Recovery| SQLite["SQLite Saga Store<br/>(saga_store.py) [ADR 005]"]
+    subgraph Edge["Edge Domain / Branch Node (ADR 001: Bounded AP)"]
+        Evaluator["LocalLeaseEvaluator<br/>(lease.py) [ADR 007]"] -->|Req in Bounds?| Check{In Bounds?}
+        Check -->|No: Exceeds Quota/Epoch| Deny["FAIL-CLOSED DENY<br/>(Zero Disbursal, Safe)"]
+        Check -->|Yes: Approved| VC_Edge["Vector Clock<br/>(vc_branch) [ADR 004]"]
+        VC_Edge --> Signer["RFC 8785 Canonicalizer<br/>+ Ed25519 Signer [ADR 003]"]
+        Signer -->|Issue Proof| Receipt["Signed Leased Receipt<br/>(Ed25519 + Embedded Lease)"]
+    end
+
+    Receipt -.->|Network Heals| Recon["TrustFork Reconciler<br/>(reconciler.py)"]
+
+    subgraph Central_Recon["Deterministic Reconciler (Post-Partition)"]
+        Recon -->|1. Verify Signatures| Verify["Ed25519 VerifyKey [ADR 003]"]
+        Recon -->|2. Check DAG Ancestry| DAG_Check["Authority Merkle DAG [ADR 002]"]
+        Recon -->|3. Verify Epoch & Limits| BoundCheck["5-Point Invariant [ADR 007]"]
+        BoundCheck -->|Valid Leased Execution| Survives["Verdict: SURVIVES<br/>(Permanent Finality, Zero Clawback)"]
+        BoundCheck -->|Legacy/Unleased Fallback| SagaOrch["Saga Orchestrator<br/>(saga_orchestrator.py) [ADR 005]"]
+        SagaOrch --> SQLite["SQLite Saga Store [ADR 005]"]
     end
 
     subgraph Audit["Forensic Audit Copilot (ADR 006)"]
-        Recon -.->|Inspect Decision| Copilot["Audit Copilot<br/>(copilot.py) [ADR 006]"]
-        SQLite -.->|Query Idempotency Key| Copilot
+        Survives -.->|Explain Decision| Copilot["Audit Copilot<br/>(copilot.py) [ADR 006]"]
         Copilot --> Report["Deterministic Natural<br/>Language Audit Report"]
     end
 ```
+
 
 
 
@@ -106,8 +115,10 @@ graph TD
 * **Trade-offs**:
   * ✅ **Advantage**: Matches physical reality; idempotent execution prevents double-compensation; non-blocking recovery.
   * ⚠️ **Trade-off**: Requires explicit compensation logic for every business action; eventual consistency window exists until compensation completes.
+* **Evolution to ADR 007**: While Sagas remain an essential architectural fallback for un-leased legacy actions or uncoordinated failures, TrustFork's primary paradigm now uses **Pre-Authorized Bounded Leases (ADR 007)** to prevent unauthorized divergence upfront, making compensation unnecessary for compliant leased transactions.
 
 ---
+
 
 ## ADR 006: Deterministic Semantic Natural Language Generation over Probabilistic Cloud LLMs
 

@@ -98,7 +98,7 @@ cd Trustfork
 ```
 
 ### Option A: Run Headless Simulation (Terminal)
-Executes the complete partition, loan approval under V1, reconnect, reconciliation, and saga clawback:
+Executes the complete bounded lease lifecycle: pre-authorization under V1, network partition, central V2 policy update, within-lease approval ($12,000), fail-closed out-of-bounds rejection ($8,000), reconnect, and deterministic **SURVIVES** reconciliation with zero clawbacks:
 ```bash
 python main.py
 # Or via uv directly:
@@ -106,14 +106,15 @@ uv run python main.py
 ```
 
 ### Option B: Launch Interactive Web Dashboard
-Spins up the FastAPI real-time simulation UI with network topology controls:
+Spins up the FastAPI real-time simulation UI with interactive network topology and guided walkthrough:
 ```bash
 uv run --directory app_build python -m uvicorn trustfork.server:app --app-dir src --port 8000 --reload
 ```
 Open **[http://localhost:8000](http://localhost:8000)** in your browser:
 * Toggle **Network Partition** on/off.
-* Issue loans at Branch B under disconnected state.
-* Click **Heal & Reconcile** to observe DAG convergence and Saga execution.
+* Issue loans under pre-authorized bounded leases or test fail-closed limit rejections.
+* Click **Trigger Reconciliation** to observe deterministic verification, zero-clawback **`SURVIVES`** verdicts, and Forensic Copilot audit reports.
+
 
 ### Option C: Run via Docker (Zero-Install)
 Pull and run the prebuilt production container directly from GitHub Container Registry:
