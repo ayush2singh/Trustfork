@@ -178,6 +178,18 @@ Every transaction, receipt, and lease passes through these sequential checkpoint
 
 ## 4. Architectural Philosophy of Edge Case Handling
 
-1. **At the Edge:** We fail-closed locally within pre-authorized cryptographic bounded leases so unauthorized funds are never disbursed.
-2. **At Reconciliation:** We enforce a deterministic 5-point invariant that guarantees all compliant edge transactions achieve permanent finality (`SURVIVES`) with zero clawbacks.
-3. **At the Safety Net:** For any un-leased legacy divergence, our durable SQLite Saga Orchestrator executes idempotent forward recovery so that the system never crashes or loses an audit trail.
+1. **At the Edge (Proactive Prevention):**
+   We fail-closed locally within pre-authorized cryptographic bounded leases so unauthorized funds are never disbursed.
+
+2. **At Reconciliation (The 5-Point Verification Invariant):**
+   We enforce a deterministic **5-Point Verification Invariant** in `reconciler.py` that guarantees all compliant edge transactions achieve permanent finality (**`SURVIVES`**) with zero clawbacks:
+   - **Point 1 (Cryptographic Authenticity):** The lease's Ed25519 digital signature is mathematically valid over the RFC 8785 canonical JSON payload.
+   - **Point 2 (Governance Lineage):** The lease's `policy_hash` is a provable ancestor of the active cluster governance root in the Merkle DAG.
+   - **Point 3 (Temporal Era Boundary):** The transaction execution epoch satisfies `execution_epoch <= valid_until_epoch` (immune to NTP wall-clock drift).
+   - **Point 4 (Scope & Capability Match):** The requested `(action, resource)` matches the lease's pre-approved authorization scope (Principle of Least Privilege).
+   - **Point 5 (Cumulative Quota Enforcement):** The transaction amount satisfies `cumulative_spend + amount <= usage_limit`.
+
+   *Guaranteed Outcome:* If all 5 conditions hold, the verdict is **`SURVIVES`** with zero clawbacks, zero rollbacks, and zero saga side-effects (`compensation = None`).
+
+3. **At the Safety Net (Reactive Forward Recovery):**
+   For any un-leased legacy divergence or edge over-allocations, our durable SQLite Saga Orchestrator executes idempotent forward recovery so that the system never crashes, never duplicates charges, and maintains an airtight audit trail.
