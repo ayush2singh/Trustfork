@@ -11,33 +11,33 @@ The following diagram maps each architectural decision to its corresponding runt
 ```mermaid
 graph TD
     subgraph Central_Pre["Central Authority (Pre-Partition)"]
-        DAG_Auth["Authority Merkle DAG<br/>(PolicyNode) [ADR 002]"] -->|Anchors Policy Hash| Issuer["LeaseAuthority [ADR 007]"]
-        Issuer -->|Signs with Ed25519 [ADR 003]| Lease["Pre-Authorized Bounded Lease<br/>(Epoch, Quota, Scope)"]
+        DAG_Auth["Authority Merkle DAG<br/>PolicyNode (ADR 002)"] -->|Anchors Policy Hash| Issuer["LeaseAuthority (ADR 007)"]
+        Issuer -->|Signs with Ed25519 - ADR 003| Lease["Pre-Authorized Bounded Lease<br/>(Epoch, Quota, Scope)"]
     end
 
     Lease -->|Distributed Pre-Partition| Evaluator
 
     subgraph Edge["Edge Domain / Branch Node (ADR 001: Bounded AP)"]
-        Evaluator["LocalLeaseEvaluator<br/>(lease.py) [ADR 007]"] -->|Req in Bounds?| Check{In Bounds?}
-        Check -->|No: Exceeds Quota/Epoch| Deny["FAIL-CLOSED DENY<br/>(Zero Disbursal, Safe)"]
-        Check -->|Yes: Approved| VC_Edge["Vector Clock<br/>(vc_branch) [ADR 004]"]
-        VC_Edge --> Signer["RFC 8785 Canonicalizer<br/>+ Ed25519 Signer [ADR 003]"]
+        Evaluator["LocalLeaseEvaluator<br/>lease.py (ADR 007)"] -->|Req in Bounds?| Check{In Bounds?}
+        Check -->|No: Exceeds Quota/Epoch| Deny["FAIL-CLOSED DENY<br/>Zero Disbursal, Safe"]
+        Check -->|Yes: Approved| VC_Edge["Vector Clock<br/>vc_branch (ADR 004)"]
+        VC_Edge --> Signer["RFC 8785 Canonicalizer<br/>+ Ed25519 Signer (ADR 003)"]
         Signer -->|Issue Proof| Receipt["Signed Leased Receipt<br/>(Ed25519 + Embedded Lease)"]
     end
 
     Receipt -.->|Network Heals| Recon["TrustFork Reconciler<br/>(reconciler.py)"]
 
     subgraph Central_Recon["Deterministic Reconciler (Post-Partition)"]
-        Recon -->|1. Verify Signatures| Verify["Ed25519 VerifyKey [ADR 003]"]
-        Recon -->|2. Check DAG Ancestry| DAG_Check["Authority Merkle DAG [ADR 002]"]
-        Recon -->|3. Verify Epoch & Limits| BoundCheck["5-Point Invariant [ADR 007]"]
+        Recon -->|1. Verify Signatures| Verify["Ed25519 VerifyKey (ADR 003)"]
+        Recon -->|2. Check DAG Ancestry| DAG_Check["Authority Merkle DAG (ADR 002)"]
+        Recon -->|3. Verify Epoch & Limits| BoundCheck["5-Point Invariant (ADR 007)"]
         BoundCheck -->|Valid Leased Execution| Survives["Verdict: SURVIVES<br/>(Permanent Finality, Zero Clawback)"]
-        BoundCheck -->|Legacy/Unleased Fallback| SagaOrch["Saga Orchestrator<br/>(saga_orchestrator.py) [ADR 005]"]
-        SagaOrch --> SQLite["SQLite Saga Store [ADR 005]"]
+        BoundCheck -->|Legacy/Unleased Fallback| SagaOrch["Saga Orchestrator<br/>saga_orchestrator.py (ADR 005)"]
+        SagaOrch --> SQLite["SQLite Saga Store (ADR 005)"]
     end
 
     subgraph Audit["Forensic Audit Copilot (ADR 006)"]
-        Survives -.->|Explain Decision| Copilot["Audit Copilot<br/>(copilot.py) [ADR 006]"]
+        Survives -.->|Explain Decision| Copilot["Audit Copilot<br/>copilot.py (ADR 006)"]
         Copilot --> Report["Deterministic Natural<br/>Language Audit Report"]
     end
 ```
