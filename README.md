@@ -3,6 +3,8 @@
 [![CI Pipeline](https://github.com/ayush2singh/Trustfork/actions/workflows/ci.yml/badge.svg)](https://github.com/ayush2singh/Trustfork/actions/workflows/ci.yml)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/ayush2singh/Trustfork)
+
 
 **TrustFork** is an asynchronous, partition-tolerant, cryptographically verifiable distributed authorization engine.
 
