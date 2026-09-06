@@ -146,4 +146,30 @@ graph TD
   * ✅ **Advantage**: Completely eliminates retroactive clawbacks and rollbacks; guarantees that every offline action remains legally and technically defensible; local evaluation fails closed safely.
   * ⚠️ **Trade-off**: Requires periodic lease renewal from Central Authority before validity epochs expire; offline operations are strictly bounded by pre-allocated usage limits.
 
+### The 5-Point Verification Invariant (`reconciler.py`)
+
+Upon network reconnection, the deterministic reconciler subjects every submitted transaction receipt to a strict **5-Point Invariant Gate**. Permanent finality (**`SURVIVES`**) is granted if and only if all 5 points evaluate to `True`:
+
+$$\text{Finality Verdict} = \text{SURVIVES} \iff (\text{Point}_1 \land \text{Point}_2 \land \text{Point}_3 \land \text{Point}_4 \land \text{Point}_5)$$
+
+1. **Point 1: Cryptographic Authenticity (`lease.verify_signature`)**
+   * *Invariant*: Central Authority's Ed25519 digital signature over the RFC 8785 canonical lease bytes must be valid.
+   * *Failure Mode*: Immediate hard rejection (`REJECTED_SIGNATURE`). Prevents forged leases or tampered parameters.
+2. **Point 2: Policy Provenance (`dag.get_policy(policy_hash)`)**
+   * *Invariant*: The lease's `policy_hash` must resolve to an authentic historical node in the cluster's Merkle Policy DAG.
+   * *Failure Mode*: Immediate hard rejection (`REJECTED_INDEFENSIBLE`). Prevents edge branches from executing un-anchored or fabricated rules.
+3. **Point 3: Temporal Boundary (`exec_epoch <= lease.valid_until_epoch`)**
+   * *Invariant*: The logical execution epoch at the edge must not exceed the pre-authorized lease expiry epoch.
+   * *Failure Mode*: Rejection outside lease (`REJECTED_OUTSIDE_LEASE`). Prevents stale execution after lease expiration.
+4. **Point 4: Scope Authorization (`req.action == lease.action` and `req.resource == lease.resource`)**
+   * *Invariant*: The executed operation must strictly match the permitted action and target resource domain.
+   * *Failure Mode*: Rejection outside lease (`REJECTED_OUTSIDE_LEASE`). Prevents privilege escalation (e.g. using a loan lease for administrative wires).
+5. **Point 5: Financial Quota Boundary (`cumulative_usage + amount <= lease.usage_limit`)**
+   * *Invariant*: The transaction amount combined with aggregate branch usage must not exceed the pre-authorized monetary quota.
+   * *Failure Mode*: Rejection outside lease (`REJECTED_OUTSIDE_LEASE`). Prevents overdrafts, over-spending, and double-disbursals.
+
+#### Invariant Breach Handling:
+* **Prevention at Edge**: During a partition, `LocalLeaseEvaluator` checks Points 3, 4, and 5 locally, failing closed (`DENY`) to ensure $0.00 leaves the vault for invalid requests.
+* **Fallback at Central**: If un-leased, divergent, or out-of-bounds transactions reach Central, the system bypasses `SURVIVES` and routes the record to the **Saga Orchestrator (ADR 005)** for asynchronous compensating forward-recovery (`COMPENSATION_DISPATCHED`).
+
 
