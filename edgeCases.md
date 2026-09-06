@@ -4,24 +4,7 @@ This document provides a comprehensive breakdown of all failure modes, edge case
 
 ---
 
-## 1. Technical Terminology & Core Concepts Glossary
-
-| Technical Concept | Meaning in Plain English | Real-World Analogy |
-| :--- | :--- | :--- |
-| **Byzantine Node** | A computer that is hacked, buggy, or lying about its state. | A corrupt bank teller who makes up fake transactions. |
-| **Split-Brain** | Two isolated servers that lose contact and both make conflicting decisions independently. | Two pilots in separate cockpits both pulling the flight stick in opposite directions because their intercom broke. |
-| **Idempotency** | Performing an action multiple times produces the exact same result as performing it once. | Pressing an elevator button 10 times—the elevator still arrives only once, and you are charged only once. |
-| **MITM (Man-In-The-Middle)** | An attacker sitting between two servers who intercepts and tampers with messages in transit. | An untrusted mailman opening an envelope, changing the check amount from $20 to $500, and resealing it. |
-| **Canonicalization (RFC 8785)** | Enforcing one single, universal text format (spacing, key order) so computers don't disagree over trivial formatting. | Insisting everyone writes dates as `YYYY-MM-DD` so `04/05/26` isn't confused between April 5th and May 4th. |
-| **Zombie Saga** | A background compensation task that got frozen halfway because the computer suddenly lost power. | A cashier counting out cash for a refund, but the power goes out before handing it over; on restart, the cashier resumes where they left off. |
-| **Partition Flapping** | A network connection that rapidly connects, disconnects, and reconnects every few milliseconds. | A loose HDMI cable flickering between static and picture. |
-| **Non-Repudiation** | Proof of identity so airtight that the sender cannot claim *"I never sent that"*. | A notarized signature on a legal contract witnessed by five bankers. |
-| **Fail-Closed** | If a safety check is uncertain or fails, default to rejecting the transaction to prevent loss. | An ATM locking its cash vault shut when an error occurs, instead of accidentally spitting out dollar bills. |
-| **Logical Epoch** | A monotonically increasing integer counter representing a governance era, completely immune to clock drift. | Numbered chapters in a book. Chapter 3 always comes before Chapter 4, regardless of what your wristwatch says. |
-
----
-
-## 2. Complete Architectural Defense Pipeline
+## 1. Architectural Defense Pipeline
 
 Every transaction, receipt, and lease passes through these sequential checkpoints:
 
@@ -73,7 +56,7 @@ Every transaction, receipt, and lease passes through these sequential checkpoint
 
 ---
 
-## 3. Master Edge Cases Table (Plain English & Technical Defense)
+## 2. Master Edge Cases Table
 
 | ID | Failure Scenario | Plain English Meaning | How TrustFork Solves It |
 | :--- | :--- | :--- | :--- |
@@ -96,7 +79,7 @@ Every transaction, receipt, and lease passes through these sequential checkpoint
 
 ---
 
-## 4. Deep-Dive: The 16 Edge Cases Explained
+## 3. Deep-Dive: The 16 Edge Cases Explained
 
 ### Category 1: Cryptography & Security
 
@@ -218,7 +201,7 @@ Every transaction, receipt, and lease passes through these sequential checkpoint
 
 ---
 
-## 5. Architectural Philosophy of Edge Case Handling
+## 4. Architectural Philosophy of Edge Case Handling
 
 1. **At the Edge:** We fail-closed locally within pre-authorized cryptographic bounded leases so unauthorized funds are never disbursed.
 2. **At Reconciliation:** We enforce a deterministic 5-point invariant that guarantees all compliant edge transactions achieve permanent finality (`SURVIVES`) with zero clawbacks.
